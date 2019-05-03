@@ -72,6 +72,7 @@ hashi(Name) :-
               [BN,BE,BS,BW] #:: 0..2,
               % The total number of connections must equal the island number.
               BN+BE+BS+BW #= Sum,
+              [FN,FE,FS,FW] #:: -NbIslands..NbIslands,
 
               %[FE,FN,FS,FW] #:: -NbIslands+1..NbIslands-1,
               ( I =:= Is, J =:= Js ->
@@ -95,11 +96,15 @@ hashi(Name) :-
               % A non-island tile has either vertical or horizontal connections, not both.
               (BN #= 0) or (BE #= 0),
               % A non-island tile generates no flow.
-              FN = -FS, FE = -FW,
+              FN #= -FS, FE #= -FW,
               (nonvar(BN), BN =:= 0 -> FN #= 0; true),
-              (nonvar(BE), BE =:= 0 -> FE #= 0; true)
-              )
+              (nonvar(BE), BE =:= 0 -> FE #= 0; true),
+              (nonvar(BS), BS =:= 0 -> FS #= 0; true),
+              (nonvar(BW), BW =:= 0 -> FW #= 0; true)
+              ),
+              writeln([I,J])
           ),
+          writeln(NESW),
 
         % find a solution
         writeln('labeling'),
