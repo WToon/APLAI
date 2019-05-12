@@ -71,6 +71,8 @@ benchmarkAll(ProblemPreds,Times):-
         
 benchmarks([bench1a,bench1b,bench1c,bench2a,bench2b,bench2c,bench3a,bench3b,bench3c,bench3d,bench3e,bench3f,bench3g]).
 benchmark(ProblemPred,Time):-
+    write("Now solving"),
+    writeln(ProblemPred),
     statistics(hr_time,T1),
     call(ProblemPred,_,_,_),
     statistics(hr_time,T2),
