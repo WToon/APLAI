@@ -10,26 +10,43 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % RUNTIME BENCHMARKS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+benchmarkAll(_,[],[]).
+
+benchmarkAll(Method,[Prob|Tail],Times):-
+    Method = classic,
+    benchmarkClassic(Prob,Time),
+    benchmarkAll(Method,Tail,SmallerTimes),
+    Times = [Time|SmallerTimes].
+    
+benchmarkAll(Method,[Prob|Tail],Times):-
+    Method = new,
+    benchmarkNew(Prob,Time),
+    benchmarkAll(Method,Tail,SmallerTimes),
+    Times = [Time|SmallerTimes].   
+        
+benchmarkAll(Method,[Prob|Tail],Times):-
+    Method = both,
+    benchmarkBoth(Prob,Time),
+    benchmarkAll(Method,Tail,SmallerTimes),
+    Times = [Time|SmallerTimes].  
+    
 benchmarkClassic(ProblemPred,Time):-
     call(ProblemPred,P),
-    statistics(hr_time,T1),
+    statistics(runtime,_),
     solveClassic(P),
-    statistics(hr_time,T2),
-    Time is T2 - T1.
+    statistics(runtime,[_,Time]).
     
 benchmarkNew(ProblemPred,Time):-
     call(ProblemPred,P),
-    statistics(hr_time,T1),
+    statistics(runtime,_),
     solveNew(P,_),
-    statistics(hr_time,T2),
-    Time is T2 - T1.
+    statistics(runtime,[_,Time]).
     
 benchmarkBoth(ProblemPred,Time):-
     call(ProblemPred,P),
-    statistics(hr_time,T1),
+    statistics(runtime,_),
     solveBoth(P),
-    statistics(hr_time,T2),
-    Time is T2 - T1.
+    statistics(runtime,[_,Time]).
     
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
