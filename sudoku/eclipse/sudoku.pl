@@ -10,25 +10,31 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % RUNTIME BENCHMARKS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-benchmarkAll(_,[],[]).
+benchmarkAll(_,[],[],[]).
 
-benchmarkAll(Method,[Prob|Tail],Times):-
+benchmarkAll(Method,[Prob|Tail],Times, BackTracks):-
     Method = classic,
     benchmarkClassic(Prob,Time),
-    benchmarkAll(Method,Tail,SmallerTimes),
-    Times = [Time|SmallerTimes].
+    benchmarkAll(Method,Tail,SmallerTimes, SmallerBackTracks),
+    backtrackClassic(Prob,BT),
+    Times = [Time|SmallerTimes],
+    BackTracks = [BT|SmallerBackTracks].
     
-benchmarkAll(Method,[Prob|Tail],Times):-
+benchmarkAll(Method,[Prob|Tail],Times, BackTracks):-
     Method = new,
     benchmarkNew(Prob,Time),
-    benchmarkAll(Method,Tail,SmallerTimes),
-    Times = [Time|SmallerTimes].   
+    benchmarkAll(Method,Tail,SmallerTimes, SmallerBackTracks),
+    backtrackNew(Prob,BT),
+    Times = [Time|SmallerTimes],
+    BackTracks = [BT|SmallerBackTracks]. 
         
-benchmarkAll(Method,[Prob|Tail],Times):-
+benchmarkAll(Method,[Prob|Tail],Times, BackTracks):-
     Method = both,
     benchmarkBoth(Prob,Time),
-    benchmarkAll(Method,Tail,SmallerTimes),
-    Times = [Time|SmallerTimes].  
+    benchmarkAll(Method,Tail,SmallerTimes, SmallerBackTracks),
+    backtrackBoth(Prob,BT),
+    Times = [Time|SmallerTimes],
+    BackTracks = [BT|SmallerBackTracks].
     
 benchmarkClassic(ProblemPred,Time):-
     call(ProblemPred,P),
