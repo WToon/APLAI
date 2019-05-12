@@ -13,7 +13,7 @@ load_puzzle(Id, Puzzle, NbIslands, Sink) :-
     length(Islands,NbIslands),
     Isink is Islands[1,1], Jsink is Islands[1,2,1],
     Sink = (Isink,Jsink),
-
+    writeln(Sink),
     % Generate an empty board of the correct size
     dim(Puzzle, [Size, Size]),
     % Load island cells into board
@@ -64,7 +64,10 @@ hashi(Name) :-
             ( I < Imax  -> FS #= -NESW[I+1,J,5]; FS = 0 ),
             ( J > 1     -> FW #= -NESW[I,J-1,6]; FW = 0 ),
             ( J < Jmax  -> FE #= -NESW[I,J+1,8]; FE = 0 ),
-
+            or(BN #\= 0, FN #= 0),
+            or(BE #\= 0, FE #= 0),
+            or(BW #\= 0, FW #= 0),
+            or(BS #\= 0, FS #= 0),
             ( Sum > 0 ->
               % Islands
 
@@ -96,15 +99,10 @@ hashi(Name) :-
               % A non-island tile has either vertical or horizontal connections, not both.
               (BN #= 0) or (BE #= 0),
               % A non-island tile generates no flow.
-              FN #= -FS, FE #= -FW,
-              (nonvar(BN), BN =:= 0 -> FN #= 0; true),
-              (nonvar(BE), BE =:= 0 -> FE #= 0; true),
-              (nonvar(BS), BS =:= 0 -> FS #= 0; true),
-              (nonvar(BW), BW =:= 0 -> FW #= 0; true)
-              ),
-              writeln([I,J])
+              FN #= -FS, FE #= -FW
+              )
           ),
-          writeln(NESW),
+          
 
         % find a solution
         writeln('labeling'),
