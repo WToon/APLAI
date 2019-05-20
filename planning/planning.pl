@@ -6,7 +6,7 @@
 meeting(NbOfPersons,Durations,OnWeekend,Rank,Precs,StartingDay,Start,EndTime,Viol):-
     initStart(Start,NbOfPersons),
     maxNbOfViols(NbOfPersons,MaxViols),
-    findUpperTimeLimit(Durations,Limit),
+    findUpperTimeLimit(Durations,OnWeekend,StartingDay,Limit),
     Start :: 0 .. Limit,    
     disjunctive(Start,Durations),
     setPrecConstraints(Precs, Start),
@@ -22,7 +22,7 @@ meeting(NbOfPersons,Durations,OnWeekend,Rank,Precs,StartingDay,Start,EndTime,Vio
 selfMeeting(NbOfPersons,Durations,OnWeekend,Rank,Precs,StartingDay,Start,EndTime,Viol):-
     initStart(Start,NbOfPersons),
     maxNbOfViols(NbOfPersons,MaxViols),
-    findUpperTimeLimit(Durations,Limit),
+    findUpperTimeLimit(Durations,OnWeekend,StartingDay,Limit),
     Start :: 0 .. Limit,    
     self_disjunctive(Start,Durations,NbOfPersons),
     setPrecConstraints(Precs, Start),
@@ -35,14 +35,29 @@ selfMeeting(NbOfPersons,Durations,OnWeekend,Rank,Precs,StartingDay,Start,EndTime
     minimize(labeling(Start),Cost).
 
 % Find the upper time limit for the starting times. Sum number of weeks needed for individual meetings.
-findUpperTimeLimit(Durations,Limit):-
+findUpperTimeLimit(Durations,OnWeekend,StartingDay,Limit):-
     array_list(Durations,DurationsList),
-    findUpperTimeLimit(DurationsList,0,Limit).
+    array_list(OnWeekend,OnWeekendsList),
+    findUpperTimeLimit(DurationsList,0,OnWeekendsList,StartingDay,Limit).
     
-findUpperTimeLimit([],Acc,Acc).
-findUpperTimeLimit([H|T],Acc,Result):-
-    NewAcc is Acc + (H // 7 + 1)*7,
-    findUpperTimeLimit(T,NewAcc,Result).
+findUpperTimeLimit([],Acc,[],_,Acc).
+findUpperTimeLimit([Duration|DurationTail],Acc,[Weekend|OnWeekendsTail],StartingDay,Result):-
+    Weekend = 0,
+    Duration < 6,
+    5 - StartingDay < Duration,
+    NewAcc is Acc + 7 - StartingDay,
+    findUpperTimeLimit([Duration|DurationTail],NewAcc,[Weekend|OnWeekendsTail],0,Result).
+findUpperTimeLimit([Duration|DurationTail],Acc,[Weekend|OnWeekendsTail],StartingDay,Result):-
+    Weekend = 0,
+    Duration < 6,
+    NewAcc is Acc + Duration,
+    NewStartingDay is (StartingDay + Duration) mod 7,
+    findUpperTimeLimit(DurationTail,NewAcc,OnWeekendsTail,NewStartingDay,Result).
+findUpperTimeLimit([Duration|DurationTail],Acc,[Weekend|OnWeekendsTail],StartingDay,Result):-
+    Weekend = 1,
+    NewAcc is Acc + Duration,
+    NewStartingDay is (StartingDay + Duration) mod 7,
+    findUpperTimeLimit(DurationTail,NewAcc,OnWeekendsTail,NewStartingDay,Result).
 
 % Make the start term the correct length and structure
 initStart(Start,NbOfPersons) :-
