@@ -69,14 +69,13 @@ benchmarkAll(ProblemPreds,Times):-
         benchmark(ProblemPred,Time)
     ).
         
-benchmarks([bench1a,bench1b,bench1c,bench2a,bench2b,bench2c,bench3a,bench3b,bench3c,bench3d,bench3e,bench3f,bench3g]).
+benchmarks([bench1a,bench1b,bench1c,bench2a,bench2b,bench2c,bench3a,bench3b,bench3c,bench3d,bench3g]).
 benchmark(ProblemPred,Time):-
     write("Now solving"),
     writeln(ProblemPred),
-    statistics(hr_time,T1),
+    statistics(runtime,_),
     call(ProblemPred,_,_,_),
-    statistics(hr_time,T2),
-    Time is T2 - T1.
+    statistics(runtime,[_,Time]).
    
     
 bench1a(Start,EndTime , Viol) :-

@@ -13,10 +13,10 @@ meeting(NbOfPersons,Durations,OnWeekend,Rank,Precs,StartingDay,Start,EndTime,Vio
     setWeekendConstraints(StartingDay,Start,Durations,OnWeekend),
     MaxStart #= Start[NbOfPersons],
     maxlist(Start,MaxStart),
-    EndTime #= Start[NbOfPersons] + Durations[NbOfPersons],
     nbOfViols(Rank,Start,NbOfPersons,Viol),
-    Cost #= EndTime * MaxViols + Viol,
-    minimize(labeling(Start),Cost).
+    Cost #= MaxStart * MaxViols + Viol,
+    minimize(labeling(Start),Cost),
+    EndTime is Start[NbOfPersons] + Durations[NbOfPersons].
     
 % The meeting/9 predicate, this time with self-made disjunctive predicate.
 selfMeeting(NbOfPersons,Durations,OnWeekend,Rank,Precs,StartingDay,Start,EndTime,Viol):-
@@ -51,6 +51,7 @@ findUpperTimeLimit([Duration|DurationTail],Acc,[Weekend|OnWeekendsTail],Starting
     Weekend = 0,
     Duration < 6,
     NewAcc is Acc + Duration,
+    5 - StartingDay >= Duration,
     NewStartingDay is (StartingDay + Duration) mod 7,
     findUpperTimeLimit(DurationTail,NewAcc,OnWeekendsTail,NewStartingDay,Result).
 findUpperTimeLimit([Duration|DurationTail],Acc,[Weekend|OnWeekendsTail],StartingDay,Result):-
@@ -78,19 +79,21 @@ maxNbOfViols(NbOfPersons,Max) :-
 % Get the correct number of violations for the given ranks and start times
 nbOfViols(Rank,Start,NbOfPersons,NbOfViols):-
     (multifor([I,J],1,NbOfPersons),foreach(L,List), param(Rank,Start) do 
-        and(Rank[I] #< Rank[J],Start[I] #> Start[J],L)
+        (Rank[I] < Rank[J] ->
+            #>(Start[I],Start[J],L)
+        ;
+            L = 0
+        )
     ),
     NbOfViols #= sum(List).
-    
-% Convert the day to a weekday with the starting day 
-toWeekDay(StartingDay,Day,WeekDay):-
-    WeekDay :: 0 .. 6,
-    WeekDay + _ * 7 #= Day + StartingDay.
+  
 
 % Set the weekend constraint for one start and duration
-setWeekendConstrait(Start,Duration,AllowedInWeekend):-
-    #<(5 - Start,Duration,InWeekend),
-    InWeekend #=< AllowedInWeekend.
+setWeekendConstrait(Start,Duration,StartingDay,0):-
+    WeekDay :: 0 .. 6,
+    WeekDay #= Start + StartingDay - _ * 7,
+    5 - WeekDay #>= Duration.
+setWeekendConstrait(_,_,_,1).
 
 % Set all weekend constraints
 setWeekendConstraints(StartingDay,Starts,Durations,OnWeekends):-
@@ -98,8 +101,7 @@ setWeekendConstraints(StartingDay,Starts,Durations,OnWeekends):-
     array_list(Durations,DurationsList),
     array_list(OnWeekends,OnWeekendsList),
     (foreach(Start,StartsList),foreach(Duration,DurationsList),foreach(OnWeekend,OnWeekendsList), param(StartingDay) do
-        toWeekDay(StartingDay,Start,RealStartDay),
-        setWeekendConstrait(RealStartDay,Duration,OnWeekend)
+        setWeekendConstrait(Start,Duration,StartingDay,OnWeekend)
     ).
 
 % Self-made disjunctive constraint
