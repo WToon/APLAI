@@ -11,6 +11,7 @@ meeting(NbOfPersons,Durations,OnWeekend,Rank,Precs,StartingDay,Start,EndTime,Vio
     disjunctive(Start,Durations),
     setPrecConstraints(Precs, Start),
     setWeekendConstraints(StartingDay,Start,Durations,OnWeekend),
+    setSymmetryBreakingConstraints(Durations,Start,Rank,Precs,OnWeekend),
     MaxStart #= Start[NbOfPersons],
     maxlist(Start,MaxStart),
     nbOfViols(Rank,Start,NbOfPersons,Viol),
@@ -23,7 +24,7 @@ selfMeeting(NbOfPersons,Durations,OnWeekend,Rank,Precs,StartingDay,Start,EndTime
     initStart(Start,NbOfPersons),
     maxNbOfViols(NbOfPersons,MaxViols),
     findUpperTimeLimit(Durations,OnWeekend,StartingDay,Limit),
-    Start :: 0 .. Limit,    
+    Start #:: 0 .. Limit,    
     self_disjunctive(Start,Durations,NbOfPersons),
     setPrecConstraints(Precs, Start),
     setWeekendConstraints(StartingDay,Start,Durations,OnWeekend),
@@ -65,7 +66,7 @@ initStart(Start,NbOfPersons) :-
     length(StartList,NbOfPersons),
     array_list(Start,StartList).
 
-% Set the precedes constraints
+% Set the precede constraints
 setPrecConstraints(Precs,Start):-
     array_list(Precs,PrecList),
     (foreach([](A,B),PrecList),param(Start) do
@@ -103,6 +104,25 @@ setWeekendConstraints(StartingDay,Starts,Durations,OnWeekends):-
     (foreach(Start,StartsList),foreach(Duration,DurationsList),foreach(OnWeekend,OnWeekendsList), param(StartingDay) do
         setWeekendConstrait(Start,Duration,StartingDay,OnWeekend)
     ).
+
+setSymmetryBreakingConstraints(Durations,Start,Ranks,Precs,OnWeekend):-
+    arity(Durations,Len),
+    array_list(Precs,PrecList),
+    (for(J,1,Len), param(Durations,Start,PrecList,OnWeekend,Ranks)do setSymmetryBreakingConstraint(Durations,Start,Ranks,PrecList,OnWeekend,J)).
+setSymmetryBreakingConstraint(Durations,Start,Ranks,Precs,OnWeekend,Element):-
+    \+(member([](_,Element),Precs);member([](Element,_),Precs)),
+    arity(Durations,Len),
+    St is Element + 1,
+    (for(I,St,Len), param(Start,Ranks,OnWeekend,Element,Durations) do
+        (Ranks[Element] =:= Ranks[I], Durations[Element] =:= Durations[I],OnWeekend[Element] =:= OnWeekend[I]->
+            Start[Element] #< Start[I],
+            writeln("Set symmetry breaking constraint!")
+            ;
+            true
+        )
+    ).
+setSymmetryBreakingConstraint(_,_,_,Precs,_,Element):-
+    member([](_,Element),Precs);member([](Element,_),Precs).
 
 % Self-made disjunctive constraint
 self_disjunctive(Start,Duration,NbOfPersons):-
