@@ -92,11 +92,11 @@ nbOfViols(Rank,Start,NbOfPersons,NbOfViols):-
   
 
 % Set the weekend constraint for one start and duration
-setWeekendConstrait(Start,Duration,StartingDay,0):-
-    WeekDay :: 0 .. 6,
-    WeekDay #= Start + StartingDay - _ * 7,
-    5 - WeekDay #>= Duration.
-setWeekendConstrait(_,_,_,1).
+%setWeekendConstrait(Start,Duration,StartingDay,0):-
+%    WeekDay :: 0 .. 6,
+%    WeekDay #= Start + StartingDay - _ * 7,
+%    5 - WeekDay #>= Duration.
+%setWeekendConstrait(_,_,_,1).
 
 % Set all weekend constraints
 setWeekendConstraints(StartingDay,Starts,Durations,OnWeekends):-
@@ -150,7 +150,7 @@ setWeekendConstraints(StartingDay,Durations,Start,OnWeekend,LastDay):-
         setWeekendConstraint(Start,Duration,Weekends,OnWeekend)
     ).
         
-setWeekendConstraint(_,_,_,_,1).
+setWeekendConstraint(_,_,_,1).
 setWeekendConstraint(Start,Duration,Weekends,0):-
     length(Weekends,Len),
     length(WeekendDurationsList,Len),
