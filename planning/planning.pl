@@ -8,7 +8,7 @@ meeting(NbOfPersons,Durations,OnWeekend,Rank,Precs,StartingDay,Start,EndTime,Vio
     maxNbOfViols(NbOfPersons,MaxViols),
     findUpperTimeLimit(Durations,OnWeekend,StartingDay,Limit),
     Start :: 0 .. Limit,    
-    disjunctive(Start,Durations),
+    self_disjunctive(Start,Durations),
     setPrecConstraints(Precs, Start),
     setWeekendConstraints(StartingDay,Start,Durations,OnWeekend),
     setSymmetryBreakingConstraints(Durations,Start,Rank,Precs,OnWeekend),
@@ -90,11 +90,11 @@ nbOfViols(Rank,Start,NbOfPersons,NbOfViols):-
   
 
 % Set the weekend constraint for one start and duration
-%setWeekendConstrait(Start,Duration,StartingDay,0):-
-%    WeekDay :: 0 .. 6,
-%    WeekDay #= Start + StartingDay - _ * 7,
-%    5 - WeekDay #>= Duration.
-%setWeekendConstrait(_,_,_,1).
+setWeekendConstrait(Start,Duration,StartingDay,0):-
+    WeekDay :: 0 .. 6,
+    WeekDay #= Start + StartingDay - _ * 7,
+    5 - WeekDay #>= Duration.
+setWeekendConstrait(_,_,_,1).
 
 % Set all weekend constraints
 setWeekendConstraints(StartingDay,Starts,Durations,OnWeekends):-
@@ -134,31 +134,11 @@ getWeekends(StartingDay,LastDay,Acc,Weekends):-
 getWeekends(_,LastDay,Acc,Acc):-
     Acc = [LastWeekend|_],
     LastWeekend + 7 > LastDay.
-    
-setWeekendConstraints(StartingDay,Durations,Start,OnWeekend,LastDay):-
-    getWeekends(StartingDay,LastDay,[],Weekends),
-    array_list(Durations,DurationList),
-    array_list(Start,StartList),
-    array_list(OnWeekend,OnWeekendList),
-    (foreach(Start,StartList), foreach(Duration,DurationList), foreach(OnWeekend,OnWeekendList),param(Weekends) do
-        setWeekendConstraint(Start,Duration,Weekends,OnWeekend)
-    ).
-        
-setWeekendConstraint(_,_,_,1).
-setWeekendConstraint(Start,Duration,Weekends,0):-
-    length(Weekends,Len),
-    length(WeekendDurationsList,Len),
-    array_list(WeekendDurations,WeekendDurationsList),
-    (for(I,1,Len),param(WeekendDurations) do
-        arg(I,WeekendDurations,2)
-    ),
-    array_list(TotWeekends,[Start|Weekends]),
-    array_list(TotDurations,[Duration|WeekendDurationsList]),
-    disjunctive(TotWeekends,TotDurations).
         
     
 % Self-made disjunctive constraint
-self_disjunctive(Start,Duration,NbOfPersons):-
+self_disjunctive(Start,Duration):-
+    arity(Start,NbOfPersons),
     (for(I,1,NbOfPersons), param(Start,Duration,NbOfPersons) do
         I1 is I + 1,
         (for(J,I1,NbOfPersons), param(I,Start,Duration) do
