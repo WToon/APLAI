@@ -11,7 +11,7 @@ meeting(NbOfPersons,Durations,OnWeekend,Rank,Precs,StartingDay,Start,EndTime,Vio
     %maxNbOfViols(NbOfPersons,MaxViols),
     findUpperTimeLimit(Durations,OnWeekend,StartingDay,Limit),
     Start :: 0 .. Limit,    
-    disjunctive(Start,Durations),
+    self_disjunctive(Start,Durations),
     setPrecConstraints(Precs, Start),
     setWeekendConstraints(StartingDay,Start,Durations,OnWeekend),
     setSymmetryBreakingConstraints(Durations,Start,Rank,Precs,OnWeekend),
@@ -83,9 +83,6 @@ maxNbOfViols(Ranks,I,Acc,Max) :-
     length(Ranks,Len),
     Len >= I,
     nth_value(Ranks,I,Own),
-    writeln(Own),
-    writeln(I),
-    writeln(Ranks),
     getNbLarger(Ranks,Own,0,Nb),
     NewI is I + 1,
     NewAcc is Acc + Nb,
@@ -144,8 +141,7 @@ setSymmetryBreakingConstraint(Durations,Start,Ranks,Precs,OnWeekend,Element):-
     St is Element + 1,
     (for(I,St,Len), param(Start,Ranks,OnWeekend,Element,Durations) do
         (Ranks[Element] =:= Ranks[I], Durations[Element] =:= Durations[I],OnWeekend[Element] =:= OnWeekend[I]->
-            Start[Element] #< Start[I],
-            writeln("Set symmetry breaking constraint!")
+            Start[Element] #< Start[I]
             ;
             true
         )
