@@ -82,17 +82,20 @@ Max is NbOfPersons * N1 // 2 + 1.
 maxNbOfViols(Ranks,I,Acc,Max) :-
     length(Ranks,Len),
     Len >= I,
-    nth1(I,Ranks,Own),
+    nth_value(Ranks,I,Own),
+    writeln(Own),
+    writeln(I),
+    writeln(Ranks),
     getNbLarger(Ranks,Own,0,Nb),
     NewI is I + 1,
     NewAcc is Acc + Nb,
     maxNbOfViols(Ranks,NewI,NewAcc,Max).
     
 maxNbOfViols(Ranks,I,Acc,Acc) :-
-    arity(Ranks,Len),
+    length(Ranks,Len),
     Len < I.
     
-    
+getNbLarger([],_,Acc,Acc).
 getNbLarger([L|Tail],E,Acc,Nb):-
     L > E,
     NewAcc is Acc + 1,
@@ -100,7 +103,7 @@ getNbLarger([L|Tail],E,Acc,Nb):-
 getNbLarger([L|Tail],E,Acc,Nb):-
     L =< E,
     getNbLarger(Tail,E,Acc,Nb).
-getNbLarger([],_,Acc,Acc).
+
 
 
 % Get the correct number of violations for the given ranks and start times
