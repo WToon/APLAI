@@ -7,11 +7,12 @@
 meeting(NbOfPersons,Durations,OnWeekend,Rank,Precs,StartingDay,Start,EndTime,Viol):-
     initStart(Start,NbOfPersons),
     array_list(Rank,RankList),
-    maxNbOfViols(RankList,1,0,MaxViols),
+    maxNbOfViols(RankList,1,0,Max),
+    MaxViols is Max + 1,
     %maxNbOfViols(NbOfPersons,MaxViols),
     findUpperTimeLimit(Durations,OnWeekend,StartingDay,Limit),
     Start :: 0 .. Limit,    
-    self_disjunctive(Start,Durations),
+    disjunctive(Start,Durations),
     setPrecConstraints(Precs, Start),
     setWeekendConstraints(StartingDay,Start,Durations,OnWeekend),
     setSymmetryBreakingConstraints(Durations,Start,Rank,Precs,OnWeekend),
@@ -25,18 +26,22 @@ meeting(NbOfPersons,Durations,OnWeekend,Rank,Precs,StartingDay,Start,EndTime,Vio
 % The meeting/9 predicate, this time with self-made disjunctive predicate.
 selfMeeting(NbOfPersons,Durations,OnWeekend,Rank,Precs,StartingDay,Start,EndTime,Viol):-
     initStart(Start,NbOfPersons),
-    maxNbOfViols(NbOfPersons,MaxViols),
+    array_list(Rank,RankList),
+    maxNbOfViols(RankList,1,0,Max),
+    MaxViols is Max + 1,
+    %maxNbOfViols(NbOfPersons,MaxViols),
     findUpperTimeLimit(Durations,OnWeekend,StartingDay,Limit),
-    Start #:: 0 .. Limit,    
-    self_disjunctive(Start,Durations,NbOfPersons),
+    Start :: 0 .. Limit,    
+    self_disjunctive(Start,Durations),
     setPrecConstraints(Precs, Start),
     setWeekendConstraints(StartingDay,Start,Durations,OnWeekend),
+    setSymmetryBreakingConstraints(Durations,Start,Rank,Precs,OnWeekend),
     MaxStart #= Start[NbOfPersons],
     maxlist(Start,MaxStart),
-    EndTime #= Start[NbOfPersons] + Durations[NbOfPersons],
     nbOfViols(Rank,Start,NbOfPersons,Viol),
-    Cost #= EndTime * MaxViols + Viol,
-    minimize(labeling(Start),Cost).
+    Cost #= MaxStart * MaxViols + Viol,
+    minimize(labeling(Start),Cost),
+    EndTime is Start[NbOfPersons] + Durations[NbOfPersons].
 
 % Find the upper time limit for the starting times. Sum number of weeks needed for individual meetings.
 findUpperTimeLimit(Durations,OnWeekend,StartingDay,Limit):-
@@ -77,7 +82,7 @@ setPrecConstraints(Precs,Start):-
         
 maxNbOfViols(NbOfPersons,Max) :-
     N1 is NbOfPersons - 1,
-Max is NbOfPersons * N1 // 2 + 1.
+    Max is NbOfPersons * N1 // 2 + 1.
 % Calculate (the maximum number of violations) + 1
 maxNbOfViols(Ranks,I,Acc,Max) :-
     length(Ranks,Len),
