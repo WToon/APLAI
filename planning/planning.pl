@@ -1,14 +1,17 @@
 :-lib(ic_edge_finder).
 :-lib(ic).
 :-lib(branch_and_bound).
+:-lib(listut).
 
 % The meeting/9 predicate.
 meeting(NbOfPersons,Durations,OnWeekend,Rank,Precs,StartingDay,Start,EndTime,Viol):-
     initStart(Start,NbOfPersons),
-    maxNbOfViols(NbOfPersons,MaxViols),
+    array_list(Rank,RankList),
+    maxNbOfViols(RankList,1,0,MaxViols),
+    %maxNbOfViols(NbOfPersons,MaxViols),
     findUpperTimeLimit(Durations,OnWeekend,StartingDay,Limit),
     Start :: 0 .. Limit,    
-    self_disjunctive(Start,Durations),
+    disjunctive(Start,Durations),
     setPrecConstraints(Precs, Start),
     setWeekendConstraints(StartingDay,Start,Durations,OnWeekend),
     setSymmetryBreakingConstraints(Durations,Start,Rank,Precs,OnWeekend),
@@ -71,11 +74,34 @@ setPrecConstraints(Precs,Start):-
     array_list(Precs,PrecList),
     (foreach([](A,B),PrecList),param(Start) do
         Start[A] #< Start[B]).
-
-% Calculate (the maximum number of violations) + 1
+        
 maxNbOfViols(NbOfPersons,Max) :-
     N1 is NbOfPersons - 1,
-    Max is NbOfPersons * N1 // 2 + 1.
+Max is NbOfPersons * N1 // 2 + 1.
+% Calculate (the maximum number of violations) + 1
+maxNbOfViols(Ranks,I,Acc,Max) :-
+    length(Ranks,Len),
+    Len >= I,
+    nth1(I,Ranks,Own),
+    getNbLarger(Ranks,Own,0,Nb),
+    NewI is I + 1,
+    NewAcc is Acc + Nb,
+    maxNbOfViols(Ranks,NewI,NewAcc,Max).
+    
+maxNbOfViols(Ranks,I,Acc,Acc) :-
+    arity(Ranks,Len),
+    Len < I.
+    
+    
+getNbLarger([L|Tail],E,Acc,Nb):-
+    L > E,
+    NewAcc is Acc + 1,
+    getNbLarger(Tail,E,NewAcc,Nb).
+getNbLarger([L|Tail],E,Acc,Nb):-
+    L =< E,
+    getNbLarger(Tail,E,Acc,Nb).
+getNbLarger([],_,Acc,Acc).
+
 
 % Get the correct number of violations for the given ranks and start times
 nbOfViols(Rank,Start,NbOfPersons,NbOfViols):-
