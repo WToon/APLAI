@@ -95,7 +95,7 @@ hashi(Id) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-% This is a very good search strategy for the problem. The results can be found in the report.
+% This is the best search strategy for the problem.
 search(first_fail, List, NbBacktracks) :-
   search(List, 0, first_fail, indomain, complete, [backtrack(NbBacktracks)]).
 
