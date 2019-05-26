@@ -28,6 +28,7 @@ hashi(Id) :-
       FW is NESW[I,J,8],  % The flow on the west side of the field
 
       % Connections on the side of a tile imply the same amount of connections on the connecting side of the adjacent tile.
+      % Connections to the border are not possible.
       ( I > 1    -> BN #= NESW[I-1,J,3] ; BN = 0 ),
       ( I < Imax -> BS #= NESW[I+1,J,1] ; BS = 0 ),
       ( J > 1    -> BW #= NESW[I,J-1,2] ; BW = 0 ),
