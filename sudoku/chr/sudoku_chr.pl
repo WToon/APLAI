@@ -2,15 +2,24 @@
 :- op( 700,xfx,in).
 :- op( 700,xfx,ne).
 :- op( 700,xfx,eq).
-:- chr_constraint in/2, ne/2,enum/1, indomain/1, inBox/3, channelToXs/4, channelToBoard/4.
+:- chr_constraint in/2, ne/2,enum/1, indomain/1, channelToXs/4, channelToBoard/4, inDifferentBox/3.
+
 :- set_prolog_flag(chr_toplevel_show_store, false).
+
+:- chr_option(debug,off).
+:- chr_option(optimize,full).
+:- [example_puzzles].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % CHR CONSTRAINTS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+channelToXs(Xs,X,Y,K) <=> nonvar(K) | get(Xs,Y,K,X).
+% Meaning X_IJ = K => Board_IK = J
+channelToBoard(Board,I,J,K) <=> nonvar(K) | get(Board,K,I,J).
+
 % The not equals constraint.
 X ne Y <=> nonvar(X),nonvar(Y) | X \== Y.
-inBox(X,Y,NN) <=> nonvar(X) | Y is (X - 1) // NN + 1.
 
 _ in [] <=> fail.
 X in [Y] <=> X = Y.
@@ -18,8 +27,6 @@ enum([]) <=> true.
 X in L <=> nonvar(X) | memberchk(X,L).
 X in L, X ne Y <=> nonvar(Y) |delete(L,Y,L_New), X in L_New.
 X in L, Y ne X <=> nonvar(Y) |delete(L,Y,L_New), X in L_New.
-X in L, X in F <=> intersection(L,F,L_New), X in L_New.
-
 
 enum([X|L]) <=> indomain(X), enum(L).
 
@@ -27,40 +34,33 @@ indomain(X) <=> nonvar(X) | true.
 indomain(X) , X in [V|L] <=> L = [_|_] | (X in [V]; X in L, indomain(X)).
 
 
+inDifferentBox(X1,X2,NN), X2 in L <=> nonvar(X1) | groupCols(X1,NN,GroupCols), subtract(L,GroupCols,LNew),X2 in LNew.
+inDifferentBox(X2,X1,NN), X2 in L <=> nonvar(X1) | groupCols(X1,NN,GroupCols), subtract(L,GroupCols,LNew),X2 in LNew.
 
-inBox(X,Y,NN) <=> nonvar(Y) | Min is (Y-1)*NN + 1, Max is (Y-1)*NN + NN, findall(E,between(Min,Max,E),Domain),X in Domain.
 
-channelToXs(Xs,X,Y,K) <=> nonvar(K) | get(Xs,Y,K,X).
-% Meaning X_IJ = K => Board_IK = J
-channelToBoard(Board,I,J,K) <=> nonvar(K) | get(Board,K,I,J).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % SOLVERS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 solveClassic(Board) :-
-    flatten(Board,FlatBoard),
+    flatten(Board,FlatBoard), 
     length(Board,N),
-    findall(E,between(1,N,E),Domain),
+    numlist(1,N,Domain),
     setDomainConstraints(FlatBoard,Domain),
-    setClassicConstraints(Board),
+    setRowColAllDifferentConstraints(Board,N),
+    setBoxConstraints(Board,N),
     enum(FlatBoard),
     !.
     
-solveNew(Xs,Ys):-
+solveNew(Xs):-
     length(Xs,N),
-    createTemplate(N,Ys),
     NN is floor(sqrt(N)),
-    findall(E,between(1,N,E),Domain),
+    numlist(1,N,Domain),
     flatten(Xs,FlatBoard),   
     setDomainConstraints(FlatBoard,Domain),
-    findall(E,between(1,NN,E),YsDomain),
-    flatten(Ys,YsFlat),
-    setDomainConstraints(YsFlat,YsDomain),
-    setRowColallDifferentConstraints(Xs,N),
-    setInBoxConstraints(Xs,Ys,N,NN),
-    setNewBoxConstraints(Ys,N,NN),
-    writeln("enumerating..."),
+    setRowColAllDifferentConstraints(Xs,N),
+    setNewBoxConstraints(Xs,N,NN),
     enum(FlatBoard),
     !.
 
@@ -70,22 +70,17 @@ solveChanneling(Board,Xs):-
     NN is floor(sqrt(N)),
     createTemplate(N,Board),
     createTemplate(N,Xs),
-    createTemplate(N,Ys),
-    setChannelings(Board,Xs),
     flatten(Board,FlatBoard),
-    findall(E,between(1,N,E),Domain),
+    numlist(1,N,Domain),
     setDomainConstraints(FlatBoard,Domain),
-    setClassicConstraints(Board),
-    findall(E,between(1,N,E),Domain),
+    setRowColAllDifferentConstraints(Board,N),
+    setBoxConstraints(Board,N),
     flatten(Xs,FlatXs),   
     setDomainConstraints(FlatXs,Domain),
-    findall(E,between(1,NN,E),YsDomain),
-    flatten(Ys,YsFlat),
-    setDomainConstraints(YsFlat,YsDomain),
-    setRowColallDifferentConstraints(Xs,N),
-    setInBoxConstraints(Xs,Ys,N,NN),
-    setNewBoxConstraints(Ys,N,NN),
-    enum(FlatBoard).
+    setNewBoxConstraints(Xs,N,NN),
+    setChannelings(Board,Xs),
+    enum(FlatBoard),
+    !.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % CONSTRAINTS
@@ -93,7 +88,7 @@ solveChanneling(Board,Xs):-
 
 setClassicConstraints(Board) :-
     length(Board,N),
-    setRowColallDifferentConstraints(Board,N),
+    setRowColAllDifferentConstraints(Board,N),
     setBoxConstraints(Board,N).
 
 setDomainConstraints([],_).
@@ -101,7 +96,7 @@ setDomainConstraints([X|Rest],Domain) :-
     X in Domain,
     setDomainConstraints(Rest,Domain).
     
-setRowColallDifferentConstraints(Board, N) :-
+setRowColAllDifferentConstraints(Board, N) :-
     for(1,N,1,setColumnConstraint(Board,N)),
     for(1,N,1,setRowConstraint(Board,N)).
         
@@ -138,30 +133,28 @@ allDifferent([X|Rest],E) :-
     X ne E,
     allDifferent(Rest,E).
     
-setNewBoxConstraints(Ys,N,NN):-
+setNewBoxConstraints(Xs,N,NN):-
     EndBox is N - NN + 1,
     for(1,N,1,
         for(1,EndBox,NN,
-            setNewBoxConstraint(Ys,NN)
+            setDifferentBoxConstraints(Xs,NN)
         )
     ).
-        
-setNewBoxConstraint(Ys,NN,Row,StartCol):-
-    EndCol is StartCol + NN - 1,
-    bagof(E,Col^(between(StartCol,EndCol,Col),get(Ys,Col,Row,E)),L),
-    allDifferent(L).
 
-setInBoxConstraints(Xs,Ys,N,NN):-
-    for(1,N,1,
-        for(1,N,1,
-            setInBoxConstraint(Xs,Ys,NN)
-        )
-    ).
+setDifferentBoxConstraints(Xs,NN,Row,StartCol):-
+    EndCol is StartCol + NN - 1,
+    bagof(E,Col^(between(StartCol,EndCol,Col),get(Xs,Col,Row,E)),L),
+    allDifferentBox(L,NN).
     
-setInBoxConstraint(Xs,Ys,NN,Row,Col):-
-    get(Xs,Col,Row,X),
-    get(Ys,Col,Row,Y),
-    inBox(X,Y,NN).
+allDifferentBox([_],_).
+allDifferentBox([X|Rest],NN):-
+    allDifferentBox(Rest,X,NN),
+    allDifferent(Rest).
+    
+allDifferentBox([],_,_).
+allDifferentBox([X2|Rest],X1,NN):-
+    inDifferentBox(X1,X2,NN),
+    allDifferentBox(Rest,X1,NN).
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % CHANNELING
@@ -238,358 +231,17 @@ forRec(Iterator,End,Step,Pred,Args):-
     NewIndex is Iterator + Step,
     forRec(NewIndex,End,Step,Pred,Args).
     
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% EXAMPLE PUZZLES
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-lambda(P) :- P =
-        [[1,_,_, _,_,_, _,_,_],
-         [_,_,2, 7,4,_, _,_,_],
-         [_,_,_, 5,_,_, _,_,4],
-
-         [_,3,_, _,_,_, _,_,_],
-         [7,5,_, _,_,_, _,_,_],
-         [_,_,_, _,_,9, 6,_,_],
-
-         [_,4,_, _,_,6, _,_,_],
-         [_,_,_, _,_,_, _,7,1],
-         [_,_,_, _,_,1, _,3,_]].
-
-
-hard17(P) :- P = 
-	[[_,_,2,_,9,_,3,_,_],
-	[8,_,5,_,_,_,_,_,_],
-	[1,_,_,_,_,_,_,_,_],
-
-	[_,9,_,_,6,_,_,4,_],
-	[_,_,_,_,_,_,_,5,8],
-	[_,_,_,_,_,_,_,_,1],
-	
-	[_,7,_,_,_,_,2,_,_],
-	[3,_,_,5,_,_,_,_,_],
-	[_,_,_,1,_,_,_,_,_]].
-
-eastermonster(P) :- P = 
-	[[1,_,_,_,_,_,_,_,2],
-	[_,9,_,4,_,_,_,5,_],
-	[_,_,6,_,_,_,7,_,_],
-
-	[_,5,_,9,_,3,_,_,_],
-	[_,_,_,_,7,_,_,_,_],
-	[_,_,_,8,5,_,_,4,_],
-	
-	[7,_,_,_,_,_,6,_,_],
-	[_,3,_,_,_,9,_,8,_],
-	[_,_,2,_,_,_,_,_,1]].
-
-
-tarek_052(P) :- P = 
-	[[_,_,1,_,_,4,_,_,_],
-	[_,_,_,_,6,_,3,_,5],
-	[_,_,_,9,_,_,_,_,_],
-
-	[8,_,_,_,_,_,7,_,3],
-	[_,_,_,_,_,_,_,2,8],
-	[5,_,_,_,7,_,6,_,_],
-
-	[3,_,_,_,8,_,_,_,6],
-	[_,_,9,2,_,_,_,_,_],
-	[_,4,_,_,_,1,_,_,_]].
-
-goldennugget(P) :- P = 
-	[[_,_,_,_,_,_,_,3,9],
-	[_,_,_,_,_,1,_,_,5],
-	[_,_,3,_,5,_,8,_,_],
-
-	[_,_,8,_,9,_,_,_,6],
-	[_,7,_,_,_,2,_,_,_],
-	[1,_,_,4,_,_,_,_,_],
-	
-	[_,_,9,_,8,_,_,5,_],
-	[_,2,_,_,_,_,6,_,_],
-	[4,_,_,7,_,_,_,_,_]].
-
-coloin(P) :- P = 
-	[[_,2,_,4,_,3,7,_,_],
-	[_,_,_,_,_,_,_,3,2],
-	[_,_,_,_,_,_,_,_,4],
-
-	[_,4,_,2,_,_,_,7,_],
-	[8,_,_,_,5,_,_,_,_],
-	[_,_,_,_,_,1,_,_,_],
-	
-	[5,_,_,_,_,_,9,_,_],
-	[_,3,_,9,_,_,_,_,7],
-	[_,_,1,_,_,8,6,_,_]].
-
-
-extra2(P) :- P = [ 
-    [_, _, 1, _, 2, _, 7, _, _],
-    [_, 5, _, _, _, _, _, 9, _],
-    [_, _, _, 4, _, _, _, _, _],
-    [_, 8, _, _, _, 5, _, _, _],
-    [_, 9, _, _, _, _, _, _, _],
-    [_, _, _, _, 6, _, _, _, 2],
-    [_, _, 2, _, _, _, _, _, _],
-    [_, _, 6, _, _, _, _, _, 5],
-    [_, _, _, _, _, 9, _, 8, 3]].
-
-
-extra3(P) :-  P = [
-    [1, _, _, _, _, _, _, _, _],
-    [_, _, 2, 7, 4, _, _, _, _],
-    [_, _, _, 5, _, _, _, _, 4],
-    [_, 3, _, _, _, _, _, _, _],
-    [7, 5, _, _, _, _, _, _, _],
-    [_, _, _, _, _, 9, 6, _, _],
-    [_, 4, _, _, _, 6, _, _, _],
-    [_, _, _, _, _, _, _, 7, 1],
-    [_, _, _, _, _, 1, _, 3, _]].
-
-% extra4 = extra3 + 1  hint different
-extra4(P) :- P = [
-    [1, _, 4, _, _, _, _, _, _],
-    [_, _, 2, 7, 4, _, _, _, _],
-    [_, _, _, 5, _, _, _, _, _],
-    [_, 3, _, _, _, _, _, _, _],
-    [7, 5, _, _, _, _, _, _, _],
-    [_, _, _, _, _, 9, 6, _, _],
-    [_, 4, _, _, _, 6, _, _, _],
-    [_, _, _, _, _, _, _, 7, 1],
-    [_, _, _, _, _, 1, _, 3, _]].
-
-
-% inkara2012
-% from: http://www.telegraph.co.uk/science/science-news/9359579/Worlds-hardest-sudoku-can-you-crack-it.html
-inkara2012(P) :- P = [
-	[8,_,_,   _,_,_,   _,_,_],
-	[_,_,3,   6,_,_,   _,_,_],
-	[_,7,_,   _,9,_,   2,_,_],
-
-	[_,5,_,   _,_,7,   _,_,_],
-	[_,_,_,   _,4,5,   7,_,_],
-	[_,_,_,   1,_,_,   _,3,_],
-	
-	[_,_,1,   _,_,_,   _,6,8],
-	[_,_,8,   5,_,_,   _,1,_],
-	[_,9,_,   _,_,_,   4,_,_]].
-
-
-clue18(P) :- P = [
-	[7,_,8,   _,_,_,   3,_,_],
-	[_,_,_,   2,_,1,   _,_,_],
-	[5,_,_,   _,_,_,   _,_,_],
-
-	[_,4,_,   _,_,_,   _,2,6],
-	[3,_,_,   _,8,_,   _,_,_],
-	[_,_,_,   1,_,_,   _,9,_],
-	
-	[_,9,_,   6,_,_,   _,_,4],
-	[_,_,_,   _,7,_,   5,_,_],
-	[_,_,_,   _,_,_,   _,_,_]].
-
-% from:
-% http://school.maths.uwa.edu.au/~gordon/sudokumin.php
-
-clue17(P) :- P = [
-	[_,_,_,   _,_,_,   _,1,_],
-	[4,_,_,   _,_,_,   _,_,_],
-	[_,2,_,   _,_,_,   _,_,_],
-
-	[_,_,_,   _,5,_,   4,_,7],
-	[_,_,8,   _,_,_,   3,_,_],
-	[_,_,1,   _,9,_,   _,_,_],
-	
-	[3,_,_,   4,_,_,   2,_,_],
-	[_,5,_,   1,_,_,   _,_,_],
-	[_,_,_,   8,_,6,   _,_,_]].
-
-%http://www.sudokuwiki.org/Weekly_Sudoku.asp?puz=28
-sudowiki_nb28(P) :- P = [
-	[6,_,_,_,_,8,9,4,_],
-	[9,_,_,_,_,6,1,_,_],
-	[_,7,_,_,4,_,_,_,_],
-
-	[2,_,_,6,1,_,_,_,_],
-	[_,_,_,_,_,_,2,_,_],
-	[_,8,9,_,_,2,_,_,_],
-	
-	[_,_,_,_,6,_,_,_,5],
-	[_,_,_,_,_,_,_,3,_],
-	[8,_,_,_,_,1,6,_,_]].
-
-sudowiki_nb49(P) :- P = [
-	[_,_,2,8,_,_,_,_,_],
-	[_,3,_,_,6,_,_,_,7],
-	[1,_,_,_,_,_,_,4,_],
-
-	[6,_,_,_,9,_,_,_,_],
-	[_,5,_,6,_,_,_,_,9],
-	[_,_,_,_,5,7,_,6,_],
-	
-	[_,_,_,3,_,_,1,_,_],
-	[_,7,_,_,_,6,_,_,8],
-	[4,_,_,_,_,_,_,2,_]].
-    
-alt_lambda(P) :- P = [
-    [1,_,_,_,_,_,_,9,6],
-    [_,3,_,_,_,_,_,_,_],
-    [_,_,_,2,_,_,_,_,8],
-    [_,5,9,_,_,_,2,_,_],
-    [_,_,4,_,2,_,_,_,_],
-    [_,_,_,_,_,7,6,_,_],
-    [_,4,_,_,1,_,_,8,_],
-    [_,_,_,_,_,_,_,_,_],
-    [_,_,_,_,_,6,_,_,_]].
-    
-alt_hard17(P) :- P = [
-    [_,_,1,_,_,9,_,_,4],
-    [3,_,_,_,_,_,7,_,_],
-    [7,_,_,_,_,_,_,1,_],
-    [_,_,_,8,_,_,_,_,_],
-    [_,3,_,_,8,_,_,4,_],
-    [_,_,_,5,_,_,_,_,_],
-    [_,_,_,_,_,_,2,_,_],
-    [_,1,_,_,9,_,_,_,_],
-    [5,_,_,2,_,_,_,_,_]].
-
-alt_eastermonster(P) :- P = [
-    [1,_,_,_,_,_,_,_,9],
-    [9,_,_,_,_,_,_,_,3],
-    [_,_,_,6,_,_,_,2,_],
-    [_,4,_,_,_,8,_,_,_],
-    [_,8,_,2,_,5,_,_,_],
-    [_,_,3,_,_,_,7,_,_],
-    [_,_,7,_,5,_,1,_,_],
-    [_,_,_,_,_,4,_,8,_],
-    [_,2,_,4,_,_,_,6,_]].
+groupCols(Col,NN,ColList):-
+    Lower is ((Col-1) // NN)* NN + 1,
+    Higher is ((Col-1) // NN) * NN + NN,
+    numlist(Lower,Higher,ColList).
     
 
-alt_tarek_052(P) :- P = [
-    [3,_,_,_,_,_,_,_,6],
-    [_,_,_,_,8,_,_,4,_],
-    [_,7,_,9,_,_,1,_,_],
-    [6,_,_,_,_,_,_,_,2],
-    [_,9,_,_,_,1,_,_,_],
-    [_,5,_,_,_,7,9,_,_],
-    [_,_,_,7,_,5,_,_,_],
-    [_,_,_,1,9,_,5,_,_],
-    [_,_,4,_,_,_,_,3,_]].
-    
-alt_goldennugget(P) :- P = [
-    [_,6,_,_,_,1,_,_,_],
-    [_,_,_,_,6,_,_,2,_],
-    [8,_,3,_,_,_,_,_,_],
-    [_,_,_,_,_,4,_,_,1],
-    [_,9,5,_,_,_,8,_,_],
-    [_,_,_,9,_,_,_,7,_],
-    [_,_,_,_,2,_,_,_,4],
-    [_,_,7,3,_,_,5,_,_],
-    [9,_,_,5,_,_,3,_,_]].
-
-alt_coloin(P) :- P = [
-    [_,_,_,_,_,6,_,_,3],
-    [2,9,_,4,_,_,_,_,_],
-    [6,8,_,_,_,_,_,2,_],
-    [4,_,9,2,_,_,_,_,_],
-    [_,_,_,_,5,_,1,_,_],
-    [_,_,_,_,_,_,_,_,7],
-    [7,_,_,8,_,_,_,9,_],
-    [_,_,_,_,1,_,_,_,6],
-    [_,_,_,_,_,_,7,4,_]].
-    
-alt_extra2(P) :- P = [
-    [3,_,_,_,_,_,_,_,_],
-    [5,_,_,_,_,9,3,_,_],
-    [_,_,_,_,_,_,_,_,9],
-    [_,_,4,_,_,_,_,_,_],
-    [_,2,_,6,_,_,_,9,_],
-    [_,_,_,_,_,5,_,3,_],
-    [7,_,_,_,_,_,_,_,_],
-    [_,_,_,2,_,_,_,_,8],
-    [_,8,_,_,2,_,_,_,6]].
-        
-alt_extra3(P) :- P = [
-    [1,_,_,_,_,_,_,9,6],
-    [_,3,_,_,_,_,_,_,_],
-    [_,_,_,2,_,_,_,_,8],
-    [_,5,9,_,_,_,2,_,_],
-    [_,_,4,_,2,_,_,_,_],
-    [_,_,_,_,_,7,6,_,_],
-    [_,4,_,_,1,_,_,8,_],
-    [_,_,_,_,_,_,_,_,_],
-    [_,_,_,_,_,6,_,_,_]].
-    
-alt_extra4(P) :- P = [
-    [1,_,_,_,_,_,_,9,6],
-    [_,3,_,_,_,_,_,_,_],
-    [_,_,_,2,_,_,_,_,8],
-    [3,5,_,_,_,_,2,_,_],
-    [_,_,4,_,2,_,_,_,_],
-    [_,_,_,_,_,7,6,_,_],
-    [_,4,_,_,1,_,_,8,_],
-    [_,_,_,_,_,_,_,_,_],
-    [_,_,_,_,_,6,_,_,_]].
-    
-alt_inkara2012(P) :- P = [
-    [_,_,_,_,_,4,3,8,_],
-    [_,_,7,_,_,_,_,_,_],
-    [_,3,_,_,_,8,_,_,_],
-    [_,_,_,_,5,_,_,_,7],
-    [_,_,_,2,6,_,_,4,_],
-    [_,4,_,_,_,_,8,_,_],
-    [_,_,2,6,7,_,_,_,_],
-    [1,_,_,_,_,_,9,3,_],
-    [_,_,5,_,_,_,_,_,2]].
-    
-alt_clue18(P) :- P = [
-    [_,6,_,_,_,4,_,_,_],
-    [_,4,_,8,_,_,_,_,_],
-    [7,_,_,_,1,_,_,_,_],
-    [_,_,_,2,_,_,9,_,_],
-    [_,_,1,_,_,_,_,7,_],
-    [_,_,_,9,_,_,4,_,_],
-    [1,_,_,_,_,_,_,5,_],
-    [3,_,_,_,5,_,_,_,_],
-    [_,_,_,_,_,8,2,_,_]].
-    
-alt_clue17(P) :- P = [
-    [8,_,_,_,_,3,_,4,_],
-    [_,_,2,_,_,_,7,_,_],
-    [_,_,_,_,7,_,1,_,_],
-    [_,1,_,7,_,_,4,_,_],
-    [_,_,_,5,_,_,_,2,_],
-    [_,_,_,_,_,_,_,_,6],
-    [_,_,_,9,_,_,_,_,_],
-    [_,_,_,_,3,_,_,_,4],
-    [_,_,_,_,_,5,_,_,_]].
-    
-alt_sudowiki_nb28(P) :- P = [
-    [_,7,_,5,_,_,_,_,6],
-    [_,_,_,1,7,6,_,_,_],
-    [_,_,_,_,_,_,_,8,_],
-    [8,_,5,_,_,_,_,_,_],
-    [_,_,_,_,_,_,9,_,_],
-    [1,6,_,4,_,_,5,_,7],
-    [_,_,2,_,_,_,_,_,_],
-    [6,_,_,_,_,2,_,_,1],
-    [7,1,_,_,_,3,_,_,_]].
-    
-alt_sudowiki_nb49(P) :- P = [
-    [_,_,1,_,_,_,7,_,_],
-    [3,_,_,_,_,_,_,_,8],
-    [_,2,_,_,_,_,4,_,_],
-    [_,_,8,_,_,_,_,_,1],
-    [_,_,_,_,2,5,_,_,_],
-    [_,5,_,1,4,8,_,6,_],
-    [_,9,_,_,_,6,_,2,_],
-    [4,_,_,_,_,_,_,9,_],
-    [_,_,_,5,9,_,_,_,_]].
     
 example1(P) :- P = [
     [1,3,4,_],
     [4,2,3,_],
     [_,1,_,_],
-    [2,4,_,_]].
+    [_,_,_,_]].
 
        

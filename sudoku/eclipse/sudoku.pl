@@ -6,6 +6,7 @@
 
 :- lib(ic).
 %:- import alldifferent/1 from ic_global.
+%:- set_flag(coroutine,on).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % RUNTIME BENCHMARKS
