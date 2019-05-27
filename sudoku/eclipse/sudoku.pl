@@ -84,8 +84,8 @@ solveClassic(Board) :-
     setClassicConstraints(Board),
     search(Board,0,input_order,indomain,complete,[]).
     
-solveNew(Xs,Ys) :-
-    setNewConstraints(Xs,Ys),
+solveNew(Xs) :-
+    setNewConstraints(Xs),
     search(Xs,0,input_order,indomain,complete,[]).
 
 solveBoth(Board) :-
@@ -110,19 +110,19 @@ setClassicConstraints(Board) :-
 	    alldifferent(concat(Board[I..I+NN-1, J..J+NN-1]))
 	).
 
-setNewConstraints(Xs,Ys) :-
+setNewConstraints(Xs) :-
     dim(Xs, [N,N]),
     Xs :: 1..N,
     NN is integer(sqrt(N)),
     dim(Ys, [N,N]),
-    Ys :: 1..NN,
+    Ys :: 0..NN - 1,
     (for(I,1,N), param(Xs) do
         alldifferent(Xs[*,I]), % all numbers in a row have a different col.
         alldifferent(Xs[I,*])  % no 2 rows have the same number at the same column
     ),
 	( multifor([I,J],1,N,1), param(Ys,Xs,NN) do
-        Xs[I,J] - NN * (Ys[I,J] - 1) #=< 3,
-        Xs[I,J] - NN * (Ys[I,J] - 1) #>= 1
+        Xs[I,J] - NN * Ys[I,J] #=< 3,
+        Xs[I,J] - NN * Ys[I,J] #>= 1
         
 	),
     (for(I,1,N), param(Ys,NN,N) do
