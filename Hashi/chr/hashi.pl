@@ -22,14 +22,16 @@
 
 solve(Id) <=>
     load_puzzle(Id),
+    write("Loaded puzzle "), write(Id), write("."), nl,
     bridge_constraints,
     make_domains,
+    writeln("Applied bridge constraints and made domains."),
+    writeln("Board state: U = undefined"),
     print_board,
     writeln("searching"),
     search,
     print_board,
-    empty_constraint_store,
-    true.
+    empty_constraint_store.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                   Bridge  constraints                  %%%%%%%%%%%%%
@@ -177,9 +179,14 @@ add(X,Y,Z) \ X in A..B, Y in C..D, Z in E..F <=>
 %%%%%%%%%%%%%                           Search                       %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 :- chr_constraint search/0, enum/1.
+:- chr_constraint smallest_first/0.
 
 enum(X) <=> number(X) | true.
-enum(X), X in A..B <=> between(A, B, X).
+
+% Note that the between predicate selects the lowest value first.
+% TODO Maybe selecting the highest value first will lead to faster backtracks?
+enum(X), X in A..B <=> 
+    between(A, B, X).
 
 search, X in _.._ ==> var(X) | enum(X).
 search <=> true.
@@ -252,11 +259,11 @@ board(X,Y, Island, N, E, _, _) \ print_board(X,Y) <=>
 board(X, _, _, _, _, _, _) \ print_board(X, _) <=> Xx is X + 1, nl | print_board(Xx, 1).
 print_board(_, _) <=> nl.
 
-symbol(0, 0, ' ').
-symbol(0, 1, '-').
+symbol(0, 0, '  ').
+symbol(0, 1, '--').
 symbol(0, 2, '=').
-symbol(1, 0, 'I').
-symbol(2, 0, 'X').
+symbol(1, 0, ' | ').
+symbol(2, 0, '||').
 
 
 empty_constraint_store \ add(_,_,_) <=> true.
