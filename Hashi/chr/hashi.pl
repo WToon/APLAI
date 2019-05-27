@@ -11,40 +11,41 @@
 :- op(700, xfx, eq).
 :- op(600, xfx, '..').
 
-:- chr_constraint load_puzzle/1, load_islands/1, generate_empty_board/2, assign_sink/2.
-:- chr_constraint border/1, board/7, island/3, sink/3.
-:- chr_constraint bridge_constraints/0, make_domains/0.
-:- chr_constraint solve/1.
-:- chr_constraint print_board/0, print_board/2.
-:- chr_constraint empty_constraint_store/0.
+:- chr_constraint border/1, board/7, sink/3.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                 Solvers and experiments                %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+:- chr_constraint solve/1.
 
 solve(Id) <=>
     load_puzzle(Id),
+    write("Loaded puzzle "), write(Id), write("."), nl,
     bridge_constraints,
-    print_board,
     make_domains,
-    print_board
-    % UnComment to have cleaner prints but useful for debugging/testing.
-    ,empty_constraint_store
-    .
+    writeln("Applied bridge constraints and made domains."),
+    writeln("Board state: U = undefined"),
+    print_board,
+    writeln("searching"),
+    search,
+    print_board,
+    empty_constraint_store.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                   Bridge  constraints                  %%%%%%%%%%%%%
 %%%%%%%%%%%%%          The same as the ECLiPSe implementation        %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+:- chr_constraint bridge_constraints/0.
 
 % The total number of connections must equal the island number.
 % Each side of an island supports at maximum 2 connections.
-bridge_constraints, board(_, _, Sum, BN, BE, BS, BW) ==> Sum > 0 |
-    P in 0..4,
-    Pl in 0..4,
-    add(BN, BE, P),
-    add(BS, BW, Pl),
-    add(P, Pl, Sum).
+bridge_constraints, board(_, _, Sum, BN, BE, BS, BW) ==>
+    Sum > 0 |
+    S in 0..4,
+    add(BN, BE, S),
+    Ss in 0..4,
+    add(BS, BW, Ss),
+    add(S, Ss, Sum).
 
 % A non-island tile has the same amount of connections on adjacent sides.
 bridge_constraints, board(_, _, 0, BN, BE, BS, BW) ==> 
@@ -52,36 +53,40 @@ bridge_constraints, board(_, _, 0, BN, BE, BS, BW) ==>
     BE = BW.
 
 % A non-island tile has either vertical or horizontal connections, not both.
-board(_, _, 0, BN, BE, _, _) ==> number(BN), BN > 0 | BE = 0.
-board(_, _, 0, BN, BE, _, _) ==> number(BE), BE > 0 | BN = 0.
+board(_, _, 0, BN, BE, _, _) ==>
+    number(BN), BN > 0 |
+    BE = 0.
+board(_, _, 0, BN, BE, _, _) ==>
+    number(BE), BE > 0 |
+    BN = 0.
 
 % Adjacent cells have the same number of connections on opposite sides.
 bridge_constraints,
-    board(X, Y, _, BN, _, _, _), 
-    board(Xx, Y, _, _, _, BS, _) ==> 
-    X > 1, Xx is X-1 |
+    board(X, Y, _, BN, _, _, _),
+    board(X, Yy, _, _, _, BS, _) ==>
+    Yy is Y-1|
     BN eq BS.
 
 bridge_constraints, 
-    board(X, Y, _, _, BE, _, _), 
-    board(X, Yy, _, _, _, _, BW) ==> 
-    Yy is Y+1 |
+    board(X, Y, _, _, BE, _, _),
+    board(Xx, Y, _, _, _, _, BW) ==>
+    Xx is X+1 |
     BE eq BW.
 
 % Connections to the border are not possible.
 bridge_constraints, 
-    board(1, _, _, BN, _, _, _)
+    board(_, 1, _, BN, _, _, _)
     ==> BN = 0.
 bridge_constraints, 
-    board(_, Border, _, _, BE, _, _), 
+    board(Border, _, _, _, BE, _, _), 
     border(Border) 
     ==> BE = 0.
 bridge_constraints,
-    board(Border, _, _, _, _, BS, _),
+    board(_, Border, _, _, _, BS, _),
     border(Border)
     ==> BS = 0.
 bridge_constraints,
-    board(_, 1, _, _, _, _, BW)
+    board(1, _, _, _, _, _, BW)
     ==> BW = 0.
 
 % Deactivate bridge_constraints.
@@ -90,10 +95,22 @@ bridge_constraints <=> true.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                      Make Domains                      %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+:- chr_constraint make_domains/0.
 
+
+% These need to be in the constraint store (see 'add(X,Y,Z)' for explanation why)
 make_domains ==>
-    0 in 0..0, 1 in 1..1, 2 in 2..2, 3 in 3..3, 4 in 4..4, 5 in 5..5, 6 in 6..6, 7 in 7..7, 8 in 8..8.
+    0 in 0..0,
+    1 in 1..1,
+    2 in 2..2,
+    3 in 3..3,
+    4 in 4..4,
+    5 in 5..5,
+    6 in 6..6,
+    7 in 7..7,
+    8 in 8..8.
 
+% Maximum 2 connections per cardinal direction.
 make_domains,
     board(_, _, _, BN, _, _, _)
     ==> var(BN) | BN in 0..2.
@@ -107,7 +124,9 @@ make_domains,
     board(_, _, _, _, _, _, BW)
     ==> var(BW) | BW in 0..2.
 
-% Deactivate make_domains.
+
+
+% Remove make_domains from the constraint store.
 make_domains <=> true.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -115,20 +134,23 @@ make_domains <=> true.
 %%%%%%%%%%%%%         Inspired by FD solver from slides 6.64..       %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Reduce the empty interval.
+% If X lies in [A,A], X must be A.
 X in A..A <=> var(X) |X = A.
-% Remove duplicates. TODO Not sure how these duplicates are generated :/
 X in A..B \ X in A..B <=> var(X) | true.
 
+
 % Equality constraint (taken from Slide 6.66)
+% For numbers this reduces to the simple equality.
 X eq Y <=> number(X), number(Y) | X == Y.
 
+% For intervals this potentially reduces the interval size.
+% Update lower bound.
 X eq Y \ X in A..B, Y in C..D <=>
     A \== C |
     L is max(A,C),
     X in L..B,
     Y in L..D.
-
+% Update upper bound.
 X eq Y \ X in A..B, Y in C..D <=>
     B \== D|
     U is min(B,D),
@@ -136,12 +158,15 @@ X eq Y \ X in A..B, Y in C..D <=>
     Y in C..U.
 
 % Addition constraint (taken from slide 6.66)
-% TODO add support for negative intervals (for flow later on) IF using flow algorithm
-% TODO U in -3..4, V in -1..2, W in -8..8, add(U,V,W).
+% For numbers this reduces to the simple addition.
 add(X,Y,Z) <=> 
     number(X), number(Y), number(Z) | 
     Z is X+Y.
 
+% For intervals this is a little more complex. 
+% For this to support numbers we added the appropriate 'nb in nb..nb' to the constraint store.
+% E.g. "3 in 3..3, Y in 0..5, Z in -10..10, add(3, Y, Z)" gives "Z in 3..8".
+%      "Y in 0..5, Z in -10..10, add(3, Y, Z)" Does not fire the add rule.
 add(X,Y,Z) \ X in A..B, Y in C..D, Z in E..F <=>
     not(( A>=E-D, B=<F-C, C>=E-B, D=<F-A, E>=A+C, F=<B+D)) |
     Lx is max(A,E-D), Ux is min(B,F-C), X in Lx..Ux,
@@ -150,9 +175,31 @@ add(X,Y,Z) \ X in A..B, Y in C..D, Z in E..F <=>
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%                           Search                       %%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+:- chr_constraint search/0, enum/1.
+
+enum(X) <=> number(X) | write(X),true.
+
+% Note that the between predicate selects the lowest value first.
+% TODO Maybe selecting the highest value first will lead to faster backtracks?
+enum(X), X in A..B <=> between(A, B, X).
+
+search, X in _.._ ==> var(X) | enum(X).
+search <=> true.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%       Load puzzle by Id: Empty -> Islands -> Sink      %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-load_puzzle(Id) <=> puzzle(Id, Size, Islands) |
+:- chr_constraint load_puzzle/1, load_islands/1, generate_empty_board/2, assign_sink/2.
+
+% Load the puzzle.
+% This generates all the necessary board/7 facts into the constraint store.
+% It then updates island facts (Sum of connections).
+% Finally it generates the sink/3 fact used for the flow algorithm.
+load_puzzle(Id) <=> 
+    puzzle(Id, Size, Islands) |
     border(Size),
     generate_empty_board(1,1),
     load_islands(Islands),
@@ -173,7 +220,6 @@ border(Border) \ generate_empty_board(Row,Col) <=>
 load_islands([]) <=> true.
 load_islands([(X,Y,Sum)| Islands]), board(X,Y,_,BN,BE,BS,BW) <=> 
     board(X,Y,Sum,BN,BE,BS,BW),
-    island(X,Y,Sum),
     load_islands(Islands).
 
 % Assign a sink value.
@@ -186,36 +232,39 @@ assign_sink([(X,Y,_)| _],Islands) <=>
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                         Print                          %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+:- chr_constraint empty_constraint_store/0, print_board/0, print_board/2.
 
 print_board <=> print_board(1,1).
 
-board(X,Y, Island, N, E, _, _) \ print_board(X, Y) <=> 
-    Yy is Y+1,
+board(X,Y, Island, BN, BE, _, _) \ print_board(X,Y) <=> 
+    Xx is X+1,
     (Island > 0 ->
     % Print the island number
         write(Island)
     ;
     % If not assigned yet
-        ((var(N) ; var(E)) ->
+        ((var(BN) ; var(BE)) ->
             write("U")
         ;
-            symbol(N, E, Char),
+            symbol(BN, BE, Char),
             write(Char)
         )
     ),
-    print_board(X, Yy),
+    print_board(Xx, Y),
     !.
 
-board(X, _, _, _, _, _, _) \ print_board(X, _) <=> Xx is X + 1, nl | print_board(Xx, 1).
+board(_, Y, _, _, _, _, _) \ print_board(_, Y) <=> 
+    Yy is Y+1, nl | print_board(1, Yy).
+
 print_board(_, _) <=> nl.
 
-symbol(0, 0, ' ').
-symbol(0, 1, '-').
+symbol(0, 0, '  ').
+symbol(0, 1, '--').
 symbol(0, 2, '=').
-symbol(1, 0, 'I').
-symbol(2, 0, 'X').
+symbol(1, 0, ' | ').
+symbol(2, 0, '||').
 
-empty_constraint_store \ island(_,_,_) <=> true.
+
 empty_constraint_store \ add(_,_,_) <=> true.
 empty_constraint_store \ board(_,_,_,_,_,_,_) <=> true.
 empty_constraint_store \ sink(_,_,_) <=> true.
