@@ -46,7 +46,7 @@ benchmarkClassic(ProblemPred,Time):-
 benchmarkNew(ProblemPred,Time):-
     call(ProblemPred,P),
     statistics(runtime,_),
-    solveNew(P,_),
+    solveNew(P),
     statistics(runtime,[_,Time]).
     
 benchmarkBoth(ProblemPred,Time):-
@@ -66,14 +66,14 @@ backtrackClassic(ProblemPred,BT):-
 
 backtrackNew(ProblemPred,BT) :-
     call(ProblemPred,Xs),
-	setNewConstraints(Xs,_),
+	setNewConstraints(Xs),
     search(Xs,0,input_order,indomain,complete,[backtrack(BT)]).
     
 backtrackBoth(ProblemPred,BT) :-
     call(ProblemPred,Board),
     setClassicConstraints(Board),
     channeling(Board,Xs),
-    setNewConstraints(Xs,_),
+    setNewConstraints(Xs),
     search(Board,0,input_order,indomain,complete,[backtrack(BT)]).
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -91,7 +91,7 @@ solveNew(Xs) :-
 solveBoth(Board) :-
     setClassicConstraints(Board),
     channeling(Board,Xs),
-    setNewConstraints(Xs,_),
+    setNewConstraints(Xs),
     search(Board,0,input_order,indomain,complete,[]).
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
