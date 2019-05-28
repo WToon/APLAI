@@ -20,10 +20,10 @@
 
 solve(Id) <=>
     load_puzzle(Id),
-    write("Loaded puzzle "), write(Id), writeln("."),
+    write("Loaded puzzle, storing constraints... "), write(Id), writeln("."),
     bridge_constraints,
     additional_constraints,
-    writeln("Stored constraints"),
+    writeln("Stored constraints, making domains..."),
     make_domains, 
     writeln("Made domains."),
     print_board,
@@ -83,12 +83,12 @@ neighbours(X,Y,Xx,Y) \ neighbours(X,Y,Xxx,Y) <=> Xx < Xxx | true.
 neighbours(X,Y,X,Yy) \ neighbours(X,Y,X,Yyy) <=> Yy < Yyy | true.
 
 % 1-1 connections are impossible
-additional_constraints, neighbours(X,Y,Xx,Y), island(X,Y,1), board(Xx,Y,1,_,_,BS,_) ==> BS = 0.
-additional_constraints, neighbours(X,Y,X,Yy), island(X,Y,1), board(X,Yy,1,_,_,_,BW) ==> BW = 0.
+additional_constraints, neighbours(X,Y,Xx,Y), island(Xx,Y,1), board(X,Y,1,_,_,BS,_) ==> var(BS) | BS = 0.
+additional_constraints, neighbours(X,Y,X,Yy), island(X,Yy,1), board(X,Y,1,_,BE,_,_) ==> var(BE) | BE = 0.
 
 % 2=2 connections are impossible
-additional_constraints, neighbours(X,Y,Xx,Y), board(X,Y,2,_,_,BS,_), island(Xx,Y,2) ==> BS in 0..1.
-additional_constraints, neighbours(X,Y,X,Yy), board(X,Y,2,_,_,_,BW), island(X,Yy,2) ==> BW in 0..1.
+additional_constraints, neighbours(X,Y,Xx,Y), island(Xx,Y,2), board(X,Y,2,_,_,BS,_) ==> var(BS) | BS in 0..1.
+additional_constraints, neighbours(X,Y,X,Yy), island(X,Yy,2), board(X,Y,2,_,BE,_,_) ==> var(BE) | BE in 0..1.
 
 % Deactivate additional_constraints.
 additional_constraints <=> true.
@@ -220,7 +220,7 @@ board(X,Y, Island, BN, BE,_,_) \ print_board(X,Y) <=>
     ;
     % If not assigned yet
         ((var(BN) ; var(BE)) ->
-            write("U")
+            write(" U ")
         ;
             symbol(BN, BE, Char),
             write(Char)
@@ -234,9 +234,9 @@ board(X,_,_,_,_,_,_) \ print_board(X,_) <=>
 
 print_board(_,_) <=> nl.
 
-symbol(0, 0, '__').
+symbol(0, 0, '    ').
 symbol(0, 1, '---').
-symbol(0, 2, ' = ').
+symbol(0, 2, '==').
 symbol(1, 0, '  | ').
 symbol(2, 0, ' || ').
 

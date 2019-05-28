@@ -61,3 +61,4 @@ puzzle(6,20,P) :-
 % Example puzzle showing different but correct flow assignments. (All 6 possible configurations can be found in the report)
 puzzle(7,5,P) :-
     P = [(1,1,1),(3,1,5),(3,3,4),(5,1,4),(5,3,4)].
+
