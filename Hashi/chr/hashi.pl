@@ -21,9 +21,9 @@
 solve(Id) <=>
     load_puzzle(Id),
     write("Loaded puzzle "), write(Id), write("."), nl,
-    make_domains,
     bridge_constraints,
     additional_constraints,
+    make_domains,
     writeln("Applied bridge constraints and made domains."),
     writeln("Board state: U = undefined"),
     print_board,
@@ -101,25 +101,23 @@ bridge_constraints <=> true.
 
 % Create the neighbour relation 'n(Orientation, ConstPos, Xsmall, Xbig)'.
 % The neighbour relation follows (topleft -> bottomright)
-island(X,Y,_), island(Xx,Y,_) ==> X < Xx | neighbours('V', Y, X, Xx).
-island(X,Y,_), island(X,Yy,_) ==> Y < Yy | neighbours('H', X, Y, Yy).
+island(X,Y,_), island(Xx,Y,_) ==> X < Xx | neighbours(X, Y, Xx, Y).
+island(X,Y,_), island(X,Yy,_) ==> Y < Yy | neighbours(X, Y, X, Yy).
 % Remove interrupted neighbour relations.
-neighbours('V', Y, X, Xx) \ neighbours('V', Y, X, Xxx) <=> Xx < Xxx | true.
-neighbours('H', X, Y, Yy) \ neighbours('H', X, Y, Yyy) <=> Yy < Yyy | true.
+neighbours(X, Y, Xx, Y) \ neighbours(X, Y, Xxx, Y) <=> Xx < Xxx | true.
+neighbours(X, Y, X, Yy) \ neighbours(X, Y, X, Yyy) <=> Yy < Yyy | true.
 
 % 1-1 connections are impossible
 additional_constraints,
-    neighbours('V', Y, X, Xx), island(X, Y,1), board(Xx, Y, 1,BN,_,_,_) \ BN in _.._ <=> var(BN) | BN = 0.
+    neighbours(X, Y, Xx, Y), island(X,Y,1), board(Xx, Y, 1,_,_,BS,_) ==> BS = 0.
 additional_constraints,
-    neighbours('H', X, Y, Yy), island(X, Y,1), board(X, Yy, 1,_,BE,_,_) \ BE in _.._ <=> var(BE) | BE = 0.
+    neighbours(X, Y, X, Yy), island(X, Y,1), board(X, Yy, 1,_,_,_,BW) ==> BW = 0.
 
 % 2=2 connections are impossible
 additional_constraints,
-    neighbours('V', Y, X, Xx),board(X, Y, 2,BN,_,_,_),island(Xx, Y,2) \ BN in A.._ <=> BN in A..1.
+    neighbours(X, Y, Xx, Y),board(X, Y, 2,_,_,BS,_),island(Xx, Y,2) ==> BS in 0..1.
 additional_constraints,
-    neighbours('H', X, Y, Yy),board(X, Y, 2,_,BE,_,_),island(X, Yy,2) \ BE in A.._ <=> BE in A..1.
-
-
+    neighbours(X, Y, X, Yy),board(X, Y, 2,_,_,_,BW),island(X, Yy,2) ==> BW in 0..1.
 
 % Deactivate additional_constraints.
 additional_constraints <=> true.
@@ -159,8 +157,6 @@ make_domains,
 make_domains,
     board(_, _, _, _, _, _, BW)
     ==> BW in 0..2.
-
-
 
 % Remove make_domains from the constraint store.
 make_domains <=> true.
