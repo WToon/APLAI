@@ -73,7 +73,7 @@ def draw_puzzles():
         a = np.zeros((size, size))
 
         for cell in board:
-            a[cell[1] - 1][cell[0] - 1] = cell[2]
+            a[cell[0] - 1][cell[1] - 1] = cell[2]
 
         fig, ax = plt.subplots()
 
