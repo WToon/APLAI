@@ -20,14 +20,14 @@
 
 solve(Id) <=>
     load_puzzle(Id),
-    write("Loaded puzzle "), write(Id), write("."), nl,
+    write("Loaded puzzle "), write(Id), writeln("."),
     bridge_constraints,
     additional_constraints,
-    make_domains,
-    writeln("Applied bridge constraints and made domains."),
-    writeln("Board state: U = undefined"),
+    writeln("Stored constraints"),
+    make_domains, 
+    writeln("Made domains."),
     print_board,
-    writeln("searching"),
+    writeln("Searching..."),
     search,
     print_board,
     empty_constraint_store.
@@ -40,55 +40,30 @@ solve(Id) <=>
 
 % The total number of connections must equal the island number.
 % Each side of an island supports at maximum 2 connections.
-bridge_constraints, board(_, _, Sum, BN, BE, BS, BW) ==>
-    Sum > 0 |
-    S in 0..4,
-    add(BN, BE, S),
-    Ss in 0..4,
-    add(BS, BW, Ss),
+bridge_constraints, board(_,_,Sum,BN,BE,BS,BW) ==> Sum > 0 |
+    S in 0..4, add(BN, BE, S),
+    Ss in 0..4,add(BS, BW, Ss),
     add(S, Ss, Sum).
 
 % A non-island tile has the same amount of connections on adjacent sides.
-bridge_constraints, board(_, _, 0, BN, BE, BS, BW) ==> 
-    BN = BS,
-    BE = BW.
+bridge_constraints, board(_,_,0,BN,BE,BS,BW) ==> BN = BS, BE = BW.
 
 % A non-island tile has either vertical or horizontal connections, not both.
-board(_, _, 0, BN, BE, _, _) ==>
-    number(BN), BN > 0 |
-    BE = 0.
-board(_, _, 0, BN, BE, _, _) ==>
-    number(BE), BE > 0 |
-    BN = 0.
+board(_,_,0,BN,BE,_,_) ==> number(BN), BN > 0 | BE = 0.
+board(_,_,0,BN,BE,_,_) ==> number(BE), BE > 0 | BN = 0.
 
 % Adjacent cells have the same number of connections on opposite sides.
 bridge_constraints,
-    board(X, Y, _, BN, _, _, _),
-    board(Xx, Y, _, _, _, BS, _) ==>
-    Xx is X-1|
-    BN eq BS.
+    board(X,Y,_,BN,_,_,_), board(Xx,Y,_,_,_,BS,_) ==> Xx is X-1 | BN eq BS.
 
 bridge_constraints, 
-    board(X, Y, _, _, BE, _, _),
-    board(X, Yy, _, _, _, _, BW) ==>
-    Yy is Y+1 |
-    BE eq BW.
+    board(X,Y,_,_,BE,_,_), board(X,Yy,_,_,_,_,BW) ==> Yy is Y+1 | BE eq BW.
 
 % Connections to the border are not possible.
-bridge_constraints, 
-    board(1, _, _, BN, _, _, _)
-    ==> BN = 0.
-bridge_constraints, 
-    board(_, Border, _, _, BE, _, _), 
-    border(Border) 
-    ==> BE = 0.
-bridge_constraints,
-    board(Border, _, _, _, _, BS, _),
-    border(Border)
-    ==> BS = 0.
-bridge_constraints,
-    board(_, 1, _, _, _, _, BW)
-    ==> BW = 0.
+bridge_constraints, board(1,_,_,BN,_,_,_) ==> BN = 0.
+bridge_constraints, board(_,1,_,_,_,_,BW) ==> BW = 0.
+bridge_constraints, board(_,Border,_,_,BE,_,_), border(Border) ==> BE = 0.
+bridge_constraints, board(Border,_,_,_,_,BS,_), border(Border) ==> BS = 0.
 
 % Deactivate bridge_constraints.
 bridge_constraints <=> true.
@@ -104,20 +79,16 @@ bridge_constraints <=> true.
 island(X,Y,_), island(Xx,Y,_) ==> X < Xx | neighbours(X, Y, Xx, Y).
 island(X,Y,_), island(X,Yy,_) ==> Y < Yy | neighbours(X, Y, X, Yy).
 % Remove interrupted neighbour relations.
-neighbours(X, Y, Xx, Y) \ neighbours(X, Y, Xxx, Y) <=> Xx < Xxx | true.
-neighbours(X, Y, X, Yy) \ neighbours(X, Y, X, Yyy) <=> Yy < Yyy | true.
+neighbours(X,Y,Xx,Y) \ neighbours(X,Y,Xxx,Y) <=> Xx < Xxx | true.
+neighbours(X,Y,X,Yy) \ neighbours(X,Y,X,Yyy) <=> Yy < Yyy | true.
 
 % 1-1 connections are impossible
-additional_constraints,
-    neighbours(X, Y, Xx, Y), island(X,Y,1), board(Xx, Y, 1,_,_,BS,_) ==> BS = 0.
-additional_constraints,
-    neighbours(X, Y, X, Yy), island(X, Y,1), board(X, Yy, 1,_,_,_,BW) ==> BW = 0.
+additional_constraints, neighbours(X,Y,Xx,Y), island(X,Y,1), board(Xx,Y,1,_,_,BS,_) ==> BS = 0.
+additional_constraints, neighbours(X,Y,X,Yy), island(X,Y,1), board(X,Yy,1,_,_,_,BW) ==> BW = 0.
 
 % 2=2 connections are impossible
-additional_constraints,
-    neighbours(X, Y, Xx, Y),board(X, Y, 2,_,_,BS,_),island(Xx, Y,2) ==> BS in 0..1.
-additional_constraints,
-    neighbours(X, Y, X, Yy),board(X, Y, 2,_,_,_,BW),island(X, Yy,2) ==> BW in 0..1.
+additional_constraints, neighbours(X,Y,Xx,Y), board(X,Y,2,_,_,BS,_), island(Xx,Y,2) ==> BS in 0..1.
+additional_constraints, neighbours(X,Y,X,Yy), board(X,Y,2,_,_,_,BW), island(X,Yy,2) ==> BW in 0..1.
 
 % Deactivate additional_constraints.
 additional_constraints <=> true.
@@ -134,29 +105,14 @@ additional_constraints <=> true.
 
 % These need to be in the constraint store (see 'add(X,Y,Z)' for explanation why)
 make_domains ==>
-    0 in 0..0,
-    1 in 1..1,
-    2 in 2..2,
-    3 in 3..3,
-    4 in 4..4,
-    5 in 5..5,
-    6 in 6..6,
-    7 in 7..7,
-    8 in 8..8.
+    0 in 0..0, 1 in 1..1, 2 in 2..2, 3 in 3..3, 4 in 4..4, 
+    5 in 5..5, 6 in 6..6, 7 in 7..7, 8 in 8..8.
 
 % Maximum 2 connections per cardinal direction.
-make_domains,
-    board(_, _, _, BN, _, _, _)
-    ==> BN in 0..2.
-make_domains,
-    board(_, _, _, _, BE, _, _)
-    ==> BE in 0..2.
-make_domains,
-    board(_, _, _, _, _, BS, _)
-    ==> BS in 0..2.
-make_domains,
-    board(_, _, _, _, _, _, BW)
-    ==> BW in 0..2.
+make_domains, board(_,_,_,BN,_,_,_) ==> BN in 0..2.
+make_domains, board(_,_,_,_,BE,_,_) ==> BE in 0..2.
+make_domains, board(_,_,_,_,_,BS,_) ==> BS in 0..2.
+make_domains, board(_,_,_,_,_,_,BW) ==> BW in 0..2.
 
 % Remove make_domains from the constraint store.
 make_domains <=> true.
@@ -177,23 +133,19 @@ X eq Y <=> number(X), number(Y) | X == Y.
 
 % For intervals this potentially reduces the interval size.
 % Update lower bound.
-X eq Y \ X in A..B, Y in C..D <=>
-    A \== C |
+X eq Y \ X in A..B, Y in C..D <=> A \== C |
     L is max(A,C),
     X in L..B,
     Y in L..D.
 % Update upper bound.
-X eq Y \ X in A..B, Y in C..D <=>
-    B \== D|
+X eq Y \ X in A..B, Y in C..D <=> B \== D|
     U is min(B,D),
     X in A..U,
     Y in C..U.
 
 % Addition constraint (taken from slide 6.66)
 % For numbers this reduces to the simple addition.
-add(X,Y,Z) <=> 
-    number(X), number(Y), number(Z) | 
-    Z is X+Y.
+add(X,Y,Z) <=> number(X), number(Y), number(Z) | Z is X+Y.
 
 % For intervals this is a little more complex. 
 % For this to support numbers we added the appropriate 'nb in nb..nb' to the constraint store.
@@ -218,7 +170,7 @@ enum(X) <=> number(X) | write(X),true.
 enum(X), X in A..B <=> between(A, B, X).
 
 search, X in _.._ ==> var(X) | enum(X).
-search <=> true.
+search <=> writeln("Solution:"), true.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -230,26 +182,22 @@ search <=> true.
 % This generates all the necessary board/7 facts into the constraint store.
 % It then updates island facts (Sum of connections).
 % Finally it generates the sink/3 fact used for the flow algorithm.
-load_puzzle(Id) <=> 
-    puzzle(Id, Size, Islands) |
-    border(Size),
-    generate_empty_board(1,1),
-    load_islands(Islands).
+load_puzzle(Id) <=> puzzle(Id,Size,Islands) |
+    border(Size), generate_empty_board(1,1), load_islands(Islands).
 
 % Generate an empty board of (Size, Size).
-border(Border) \ generate_empty_board( _ ,Col) <=> 
-    Col > Border | true.
-border(Border) \ generate_empty_board(Row,Col) <=> 
-    Row > Border, NextCol is Col+1 |
+border(Border) \ generate_empty_board(_ ,Col) <=> Col > Border | true.
+
+border(Border) \ generate_empty_board(Row,Col) <=> Row > Border, NextCol is Col+1 |
     generate_empty_board(1, NextCol).
-border(Border) \ generate_empty_board(Row,Col) <=> 
-    Row =< Border, NextRow is Row+1 |
-    board(Row,Col,0,_,_,_,_),
-    generate_empty_board(NextRow, Col).
+    
+border(Border) \ generate_empty_board(Row,Col) <=> Row =< Border, NextRow is Row+1 |
+    board(Row,Col,0,_,_,_,_),  generate_empty_board(NextRow, Col).
 
 % Load the islands into the board.
 load_islands([]) <=> true.
-load_islands([(X,Y,Sum)| Islands]), board(X,Y,_,BN,BE,BS,BW) <=> 
+
+load_islands([(X,Y,Sum) | Islands]), board(X,Y,_,BN,BE,BS,BW) <=> 
     board(X,Y,Sum,BN,BE,BS,BW),
     load_islands(Islands),
     % Needed for neighbour relations
@@ -262,11 +210,13 @@ load_islands([(X,Y,Sum)| Islands]), board(X,Y,_,BN,BE,BS,BW) <=>
 
 print_board <=> print_board(1,1).
 
-board(X,Y, Island, BN, BE, _, _) \ print_board(X,Y) <=> 
+board(X,Y, Island, BN, BE,_,_) \ print_board(X,Y) <=> 
     Yy is Y+1,
     (Island > 0 ->
     % Print the island number
-        write(Island)
+        write(" "),
+        write(Island),
+        write(" ")
     ;
     % If not assigned yet
         ((var(BN) ; var(BE)) ->
@@ -279,19 +229,19 @@ board(X,Y, Island, BN, BE, _, _) \ print_board(X,Y) <=>
     print_board(X, Yy),
     !.
 
-board(X, _, _, _, _, _, _) \ print_board(X, _) <=> 
+board(X,_,_,_,_,_,_) \ print_board(X,_) <=> 
     Xx is X+1, nl | print_board(Xx, 1).
 
-print_board(_, _) <=> nl.
+print_board(_,_) <=> nl.
 
-symbol(0, 0, '_').
-symbol(0, 1, '--').
-symbol(0, 2, '=').
-symbol(1, 0, ' | ').
-symbol(2, 0, '||').
+symbol(0, 0, '__').
+symbol(0, 1, '---').
+symbol(0, 2, ' = ').
+symbol(1, 0, '  | ').
+symbol(2, 0, ' || ').
 
 empty_constraint_store \ island(_,_,_) <=> true.
-%empty_constraint_store \ neighbours(_,_,_,_) <=> true.
+empty_constraint_store \ neighbours(_,_,_,_) <=> true.
 empty_constraint_store \ add(_,_,_) <=> true.
 empty_constraint_store \ board(_,_,_,_,_,_,_) <=> true.
 empty_constraint_store \ sink(_,_,_) <=> true.
