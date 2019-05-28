@@ -92,6 +92,41 @@ bridge_constraints,
 % Deactivate bridge_constraints.
 bridge_constraints <=> true.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%    Additional constraints based on segment isolation   %%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+:- chr_constraint additional_constraints/0, island/3, neighbours/4.
+
+% Create the neighbour relation 'n(Orientation, ConstPos, Xsmall, Xbig)'.
+% The neighbour relation follows (topleft -> bottomright)
+island(X,Y,_), island(Xx,Y,_) ==> X < Xx | neighbours('H', Y, X, Xx).
+island(X,Y,_), island(X,Yy,_) ==> Y < Yy | neighbours('V', X, Y, Yy).
+% Remove interrupted neighbour relations.
+neighbours('H', Y, X, Xx) \ neighbours('H', Y, X, Xxx) <=> Xx < Xxx | true.
+neighbours('V', X, Y, Yy) \ neighbours('V', X, Y, Yyy) <=> Yy < Yyy | true.
+
+% 1-1 connections are impossible
+additional_constraints,
+    neighbours('H', Y, X, Xx),board(X, Y, 1,_,_,_,_),island(Xx, Y,1) \ BN in _.._ <=> BN = 0.
+additional_constraints,
+    neighbours('V', X, Y, Yy),board(X, Y, 1,_,_,_,_),island(X, Yy,1) \ BE in _.._ <=> BE = 0.
+
+% 2=2 connections are impossible
+additional_constraints,
+    neighbours('H', Y, X, Xx),board(X, Y, 2,_,_,_,_),island(Xx, Y,2) \ BN in A.._ <=> BN in A..1.
+additional_constraints,
+    neighbours('V', X, Y, Yy),board(X, Y, 2,_,_,_,_),island(X, Yy,2) \ BE in A.._ <=> BE in A..1.
+
+
+
+% Deactivate additional_constraints.
+additional_constraints <=> true.
+
+
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                      Make Domains                      %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -220,7 +255,9 @@ border(Border) \ generate_empty_board(Row,Col) <=>
 load_islands([]) <=> true.
 load_islands([(X,Y,Sum)| Islands]), board(X,Y,_,BN,BE,BS,BW) <=> 
     board(X,Y,Sum,BN,BE,BS,BW),
-    load_islands(Islands).
+    load_islands(Islands),
+    % Needed for neighbour relations
+    island(X,Y,Sum).
 
 % Assign a sink value.
 assign_sink([(X,Y,_)| _],Islands) <=> 
