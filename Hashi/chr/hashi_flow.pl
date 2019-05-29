@@ -4,44 +4,31 @@
 
 :- chr_option(debug, off).
 :- chr_option(optimize, full).
-
-
 :- op(700, xfx, in).
 :- op(700, xfx, eq).
 :- op(600, xfx, '..').
-
-:- chr_constraint border/1, board/7, sink/3.
+:- chr_constraint border/1, board/7, sink/3, flow/7.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                 Solvers and experiments                %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-:- chr_constraint solve/1, get_statistics/1.
+:- chr_constraint solve/1.
 
 solve(Id) <=>
     load_puzzle(Id),
     writeln("Loaded puzzle, storing constraints... "),
     bridge_constraints,
     additional_constraints,
+    flow_constraints,
     writeln("Stored constraints, making domains..."),
     make_domains, 
     writeln("Made domains."),
     print_board,
     writeln("Searching..."),
-    search,
-    print_board,
-    empty_constraint_store.
-
-
-get_statistics(Id) <=>
-    statistics(walltime, [_ | [_]]),
-    load_puzzle(Id),
-    bridge_constraints,
-    additional_constraints,
-    make_domains,
-    search,
-    empty_constraint_store,
-    statistics(walltime, [_ | [ExecutionTimeMS]]),
-    write(ExecutionTimeMS), write('ms'), nl.
+    %search,
+    %print_board,
+    empty_constraint_store
+    .
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                   Bridge  constraints                  %%%%%%%%%%%%%
@@ -80,11 +67,6 @@ bridge_constraints <=> true.
 board(_,_,0,BN,BE,_,_) ==> number(BN), BN > 0 | BE = 0.
 board(_,_,0,BN,BE,_,_) ==> number(BE), BE > 0 | BN = 0.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%                      Connectedness                     %%%%%%%%%%%%%
-%%%%%%%%%%%%%     Isolation when a segment connects to an island     %%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -109,11 +91,51 @@ additional_constraints, neighbours(X,Y,Xx,Y), island(Xx,Y,2), board(X,Y,2,_,_,BS
 additional_constraints, neighbours(X,Y,X,Yy), island(X,Yy,2), board(X,Y,2,_,BE,_,_) ==> var(BE) | BE in 0..1.
 
 % Deactivate additional_constraints.
+additional_constraints \ neighbours(_,_,_,_) <=> true.
+
 additional_constraints <=> true.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%                    Flow constraints                    %%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+:- chr_constraint flow_constraints/0.
+
+% Net flow arriving at the sink should equal the number of islands-1.
+flow_constraints, sink(X,Y,Ft), flow(X,Y,_,FN,FE,FS,FW) ==>
+    add(FN, FE, S), add(FS,FW,Ss), add(S,Ss, Ft).
+
+% Every non-sink island generates 1 unit of flow.
+flow_constraints, flow(_,_,-1,FN,FE,FS,FW) ==> 
+    add(FN,FE, S), add(FS,FW,Ss), add(S,Ss, -1).
+
+% Non-island cells generate no net flow
+flow_constraints, flow(_,_,0,FN,_,FS,_) ==> add(FN, FS, 0).
+flow_constraints, flow(_,_,0,_,FE,_,FW) ==> add(FE, FW, 0).
+
+% Can't have any flow along the borders.
+flow_constraints, flow(1,_,_,FN,_,_,_) ==> FN = 0.
+flow_constraints, flow(_,1,_,_,_,_,FW) ==> FW = 0.
+flow_constraints, flow(_,Border,_,_,FE,_,_), border(Border) ==> FE = 0.
+flow_constraints, flow(Border,_,_,_,_,FS,_), border(Border) ==> FS = 0.
+
+% Adjacent cells have the same number of connections on opposite sides.
+flow_constraints, flow(X,Y,_,FN,_,_,_), flow(Xx,Y,_,_,_,FS,_) ==> Xx is X-1 | add(FN,FS,0).
+flow_constraints, flow(X,Y,_,_,FE,_,_), flow(X,Yy,_,_,_,_,FW) ==> Yy is Y+1 | add(FE,FW,0).
 
 
+% You can't have any flow in a cell that contains no connections. Flow implies connections.
+% However, connections don't imply flow! (see report)
+flow_constraints,
+    board(X,Y,_,0,_,_,_), flow(X,Y,_,FN,_,_,_) ==> FN is 0.
+flow_constraints,
+    board(X,Y,_,_,0,_,_), flow(X,Y,_,_,FE,_,_) ==> FE is 0.
+flow_constraints,
+    board(X,Y,_,_,_,0,_), flow(X,Y,_,_,_,FS,_) ==> FS is 0.
+flow_constraints,
+    board(X,Y,_,_,_,_,0), flow(X,Y,_,_,_,_,FW) ==> FW is 0.
 
+
+flow_constraints <=> true.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                      Make Domains                      %%%%%%%%%%%%%
@@ -123,8 +145,8 @@ additional_constraints <=> true.
 
 % These need to be in the constraint store (see 'add(X,Y,Z)' for explanation why)
 make_domains ==>
-    0 in 0..0, 1 in 1..1, 2 in 2..2, 3 in 3..3, 4 in 4..4, 
-    5 in 5..5, 6 in 6..6, 7 in 7..7, 8 in 8..8.
+    0 in 0..0, 1 in 1..1, 2 in 2..2, 3 in 3..3, 4 in 4..4, 5 in 5..5, 6 in 6..6, 7 in 7..7, 8 in 8..8, 9 in 9..9, 10 in 10..10,
+    11 in 11..11, 12 in 12..12, 13 in 13..13, 14 in 14..14, 15 in 15..15, 16 in 16..16, 17 in 17..17, 18 in 18..18.
 
 % Maximum 2 connections per cardinal direction.
 make_domains, board(_,_,_,BN,_,_,_) ==> BN in 0..2.
@@ -139,12 +161,11 @@ make_domains <=> true.
 %%%%%%%%%%%%%              Constraint solving expressions            %%%%%%%%%%%%%
 %%%%%%%%%%%%%         Inspired by FD solver from slides 6.64..       %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-:- chr_constraint add/3, in/2, eq/2.
+:- chr_constraint add/3, in/2, eq/2, neg/2, neg/1.
 
 % If X lies in [A,A], X must be A.
 X in A..A <=> var(X) |X = A.
 X in A..B \ X in A..B <=> var(X) | true.
-
 
 % Equality constraint (taken from Slide 6.66)
 % For numbers this reduces to the simple equality.
@@ -176,6 +197,8 @@ add(X,Y,Z) \ X in A..B, Y in C..D, Z in E..F <=>
     Ly is max(C,E-B), Uy is min(D,F-A), Y in Ly..Uy,
     Lz is max(E,A+C), Uz is min(F,B+D), Z in Lz..Uz.
 
+add(X,Y,X) \ Y in _.._ <=> X = 0 | Y in 0..0.
+add(Y,Y,X) \ Y in _.._ <=> X = 0 | Y in 0..0.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                           Search                       %%%%%%%%%%%%%
@@ -184,35 +207,24 @@ add(X,Y,Z) \ X in A..B, Y in C..D, Z in E..F <=>
 
 enum(X) <=> number(X) | true.
 
-enum(X), X in A..B <=> largest_first_between(A, B, X).
+% Note that the between predicate selects the lowest value first.
+enum(X), X in A..B <=> between(A, B, X).
 
-% https://stackoverflow.com/questions/18337235/can-you-write-between-3-in-pure-prolog
-% between with largest value selected first
-largest_first_between(N, M, K) :- N < M, K = M.
-largest_first_between(N, M, K) :- N == M, !, K = M.
-largest_first_between(N, M, K) :- N < M, M1 is M-1, largest_first_between(N, M1, K).
-% between with smallest value selected first
-smallest_first_between(N, M, K) :- N < M, K = N.
-smallest_first_between(N, M, K) :- N == M, !, K = N.
-smallest_first_between(N, M, K) :- N < M, N1 is N+1, smallest_first_between(N1, M, K).
-
-search, X in 0..2 ==> var(X) | enum(X).
-search, X in 1..2 ==> var(X) | enum(X).
-search, X in 0..1 ==> var(X) | enum(X).
+search, X in _.._ ==> var(X) | enum(X).
 search <=> writeln("Solution:"), true.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%       Load puzzle by Id: Empty -> Islands -> Sink      %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-:- chr_constraint load_puzzle/1, load_islands/1, generate_empty_board/2.
+:- chr_constraint load_puzzle/1, load_islands/1, generate_empty_board/2, assign_sink/1.
 
 % Load the puzzle.
 % This generates all the necessary board/7 facts into the constraint store.
 % It then updates island facts (Sum of connections).
 % Finally it generates the sink/3 fact used for the flow algorithm.
 load_puzzle(Id) <=> puzzle(Id,Size,Islands) |
-    border(Size), generate_empty_board(1,1), load_islands(Islands).
+    border(Size), generate_empty_board(1,1), load_islands(Islands), assign_sink(Islands).
 
 % Generate an empty board of (Size, Size).
 border(Border) \ generate_empty_board(_ ,Col) <=> Col > Border | true.
@@ -221,16 +233,19 @@ border(Border) \ generate_empty_board(Row,Col) <=> Row > Border, NextCol is Col+
     generate_empty_board(1, NextCol).
 
 border(Border) \ generate_empty_board(Row,Col) <=> Row =< Border, NextRow is Row+1 |
-    board(Row,Col,0,_,_,_,_),  generate_empty_board(NextRow, Col).
+    board(Row,Col,0,_,_,_,_), flow(Row,Col,0,_,_,_,_), generate_empty_board(NextRow, Col).
 
 % Load the islands into the board.
 load_islands([]) <=> true.
 
-load_islands([(X,Y,Sum) | Islands]), board(X,Y,_,BN,BE,BS,BW) <=> 
+load_islands([(X,Y,Sum) | Islands]), board(X,Y,_,BN,BE,BS,BW), flow(X,Y,_,_,_,_,_) <=> 
     board(X,Y,Sum,BN,BE,BS,BW),
+    flow(X,Y,-1,_,_,_,_),
     load_islands(Islands),
-    % Needed for neighbour relations
     island(X,Y,Sum).
+
+assign_sink([(X,Y,_) | Rest]) <=> length(Rest, NbIslands), sink(X,Y,NbIslands).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                         Print                          %%%%%%%%%%%%%
@@ -269,8 +284,8 @@ symbol(0, 2, '==').
 symbol(1, 0, '  | ').
 symbol(2, 0, ' || ').
 
+%empty_constraint_store \ flow(_,_,_,_,_,_,_) <=> true.
 empty_constraint_store \ island(_,_,_) <=> true.
-empty_constraint_store \ neighbours(_,_,_,_) <=> true.
 empty_constraint_store \ add(_,_,_) <=> true.
 empty_constraint_store \ board(_,_,_,_,_,_,_) <=> true.
 empty_constraint_store \ _ in _.._ <=> true.
