@@ -29,6 +29,8 @@ solve(Id) <=>
     print_board,
     writeln("Searching..."),
     search,
+    active_connectedness,
+    %passive_connectedness,
     writeln("Solution:"),
     print_board,
     empty_constraint_store.
@@ -83,7 +85,7 @@ board(_,_,0,BN,BE,_,_) ==> number(BN), BN > 0 | BE = 0.
 board(_,_,0,BN,BE,_,_) ==> number(BE), BE > 0 | BN = 0.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%    Additional constraints - simple segment isolation   %%%%%%%%%%%%%
+%%%%%%%%%%%%%    Additional constraints based on segment isolation   %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 :- chr_constraint additional_constraints/0, island/3, neighbours/2.
 
@@ -107,30 +109,20 @@ additional_constraints, neighbours([X,Y],[X,Yy]), island(X,Yy,2), board(X,Y,2,_,
 additional_constraints <=> true.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%              Active connectedness method               %%%%%%%%%%%%%
-%%%%%%%%%%%%%    Isolation of segments - checked during search       %%%%%%%%%%%%%
+%%%%%%%%%%%%%               Passive connectedness method             %%%%%%%%%%%%%
+%%%%%%%%%%%%%      Every island must be reachable from the sink      %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-:- chr_constraint ac/0, segment_not_isolated/1.
-:- chr_constraint nb_segments/1, segment/3, combine_segments/2.
+:- chr_constraint reachable/2, passive_connectedness/0.
 
-% Combine segments through connections. 
-% If the board is fully connected nb_segments(0) will be in the constraint store and the only segment will have Id 1.
-segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([X,Y],[Xx,Yy]), nb_segments(C) <=> SegId < SegId2 | 
-    combine_segments(SegId,SegId2), NewC is C-1, nb_segments(NewC).
-segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([Xx,Yy],[X,Y]), nb_segments(C) <=> SegId < SegId2 | 
-    combine_segments(SegId,SegId2), NewC is C-1, nb_segments(NewC).
-segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([Xx,Yy],[X,Y]) <=> SegId == SegId2 | true.
+passive_connectedness \ sink(X,Y) <=> reachable(X,Y).
+passive_connectedness, reachable(X,Y) \ connected([X,Y], [Xx,Yy]) <=> reachable(Xx,Yy).
+passive_connectedness, reachable(X,Y) \ connected([Xx,Yy], [X,Y]) <=> reachable(Xx,Yy).
+passive_connectedness, reachable(X,Y) \ reachable(X,Y) <=> true.
 
-% TODO By combining the smallest set with the larger one we can save alot of rule firing!
-% SegId < SegId2
-combine_segments(SegId,SegId2) \ segment(SegId2,X,Y) <=> segment(SegId,X,Y).
-combine_segments(SegId,_) <=> segment_not_isolated(SegId).
-
-segment(Id,X,Y), board(X,Y,_,BN,_,_,_) \ segment_not_isolated(Id) <=> var(BN) | true.
-segment(Id,X,Y), board(X,Y,_,_,BE,_,_) \ segment_not_isolated(Id) <=> var(BE) | true.
-segment(Id,X,Y), board(X,Y,_,_,_,BS,_) \ segment_not_isolated(Id) <=> var(BS) | true.
-segment(Id,X,Y), board(X,Y,_,_,_,_,BW) \ segment_not_isolated(Id) <=> var(BW) | true.
-segment_not_isolated(X) <=> X\==1 | write("Forced backtrack"), false.
+% connectivity constraint: each island fact needs to have an accompanying reachable fact
+passive_connectedness \ island(X,Y,_), reachable(X,Y)  <=> true.
+passive_connectedness \ island(_,_,_) <=> false.
+passive_connectedness <=> true.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                      Make Domains                      %%%%%%%%%%%%%
@@ -221,14 +213,14 @@ search <=> true.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%       Load puzzle by Id: Empty -> Islands -> Sink      %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-:- chr_constraint load_puzzle/1, load_islands/2, generate_empty_board/2.
+:- chr_constraint load_puzzle/1, load_islands/1, generate_empty_board/2, select_sink/1, sink/2.
 
 % Load the puzzle.
 % This generates all the necessary board/7 facts into the constraint store.
 % It then updates island facts (Sum of connections).
 % Finally it generates the sink/3 fact used for the flow algorithm.
 load_puzzle(Id) <=> puzzle(Id,Size,Islands) |
-    border(Size), generate_empty_board(1,1), nb_segments(0), load_islands(Islands, 0).
+    border(Size), generate_empty_board(1,1), load_islands(Islands), select_sink(Islands).
 
 % Generate an empty board of (Size, Size).
 border(Border) \ generate_empty_board(_ ,Col) <=> Col > Border | true.
@@ -240,17 +232,16 @@ border(Border) \ generate_empty_board(Row,Col) <=> Row =< Border, NextRow is Row
     board(Row,Col,0,_,_,_,_),  generate_empty_board(NextRow, Col).
 
 % Load the islands into the board.
-load_islands([],_) <=> true.
+load_islands([]) <=> true.
 
-load_islands([(X,Y,Sum) | Islands], NbSegments), board(X,Y,_,BN,BE,BS,BW) <=>
-    island(X,Y,Sum),
+load_islands([(X,Y,Sum) | Islands]), board(X,Y,_,BN,BE,BS,BW) <=> 
     board(X,Y,Sum,BN,BE,BS,BW),
-    NewNbSegments is NbSegments+1,
-    segment(NewNbSegments,X,Y),
-    nb_segments(NewNbSegments),
-    load_islands(Islands, NewNbSegments).
+    load_islands(Islands),
+    % Needed for neighbour relations
+    island(X,Y,Sum).
 
-nb_segments(X) \ nb_segments(Y) <=> X > Y | true.
+select_sink([(X,Y,_)|_]) <=> sink(X,Y).
+
 % An island is connected to a neighbour by at least one bridge.
 neighbours([X,Y],[Xx,Y]), board(X,Y,_,_,_,BS,_) ==> number(BS), BS > 0| connected([X,Y],[Xx,Y]).
 neighbours([X,Y],[X,Yy]), board(X,Y,_,_,BE,_,_) ==> number(BE), BE > 0| connected([X,Y],[X,Yy]).
@@ -292,7 +283,6 @@ symbol(0, 2, '==').
 symbol(1, 0, '  | ').
 symbol(2, 0, ' || ').
 
-empty_constraint_store \ segment(_,_,_) <=> true.
 empty_constraint_store \ island(_,_,_) <=> true.
 empty_constraint_store \ neighbours(_,_) <=> true.
 empty_constraint_store \ add(_,_,_) <=> true.

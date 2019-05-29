@@ -29,6 +29,7 @@ solve(Id) <=>
     print_board,
     writeln("Searching..."),
     search,
+    ac,
     writeln("Solution:"),
     print_board,
     empty_constraint_store.
@@ -110,28 +111,17 @@ additional_constraints <=> true.
 %%%%%%%%%%%%%              Active connectedness method               %%%%%%%%%%%%%
 %%%%%%%%%%%%%    Isolation of segments - checked during search       %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-:- chr_constraint ac/0, segment_not_isolated/1.
+:- chr_constraint ac/0.
 :- chr_constraint nb_segments/1, segment/3, combine_segments/2.
 
-% Combine segments through connections. 
-% If the board is fully connected nb_segments(0) will be in the constraint store and the only segment will have Id 1.
 segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([X,Y],[Xx,Yy]), nb_segments(C) <=> SegId < SegId2 | 
-    combine_segments(SegId,SegId2), NewC is C-1, nb_segments(NewC).
+    writeln(["segIds", SegId, SegId2]), combine_segments(SegId,SegId2), NewC is C-1, nb_segments(NewC).
 segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([Xx,Yy],[X,Y]), nb_segments(C) <=> SegId < SegId2 | 
-    combine_segments(SegId,SegId2), NewC is C-1, nb_segments(NewC).
-segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([Xx,Yy],[X,Y]) <=> SegId == SegId2 | true.
+    writeln(["segIds", SegId, SegId2]), combine_segments(SegId,SegId2), NewC is C-1, nb_segments(NewC).
 
-% TODO By combining the smallest set with the larger one we can save alot of rule firing!
 % SegId < SegId2
-combine_segments(SegId,SegId2) \ segment(SegId2,X,Y) <=> segment(SegId,X,Y).
-combine_segments(SegId,_) <=> segment_not_isolated(SegId).
-
-segment(Id,X,Y), board(X,Y,_,BN,_,_,_) \ segment_not_isolated(Id) <=> var(BN) | true.
-segment(Id,X,Y), board(X,Y,_,_,BE,_,_) \ segment_not_isolated(Id) <=> var(BE) | true.
-segment(Id,X,Y), board(X,Y,_,_,_,BS,_) \ segment_not_isolated(Id) <=> var(BS) | true.
-segment(Id,X,Y), board(X,Y,_,_,_,_,BW) \ segment_not_isolated(Id) <=> var(BW) | true.
-segment_not_isolated(X) <=> X\==1 | write("Forced backtrack"), false.
-
+combine_segments(SegId,SegId2) \ segment(SegId2,X,Y) <=> segment(SegId,X,Y), writeln([SegId,X,Y]).
+combine_segments(_,_) <=> true.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                      Make Domains                      %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -292,7 +282,6 @@ symbol(0, 2, '==').
 symbol(1, 0, '  | ').
 symbol(2, 0, ' || ').
 
-empty_constraint_store \ segment(_,_,_) <=> true.
 empty_constraint_store \ island(_,_,_) <=> true.
 empty_constraint_store \ neighbours(_,_) <=> true.
 empty_constraint_store \ add(_,_,_) <=> true.
