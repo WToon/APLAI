@@ -28,6 +28,7 @@ solve(Id) <=>
     print_board,
     writeln("Searching..."),
     search,
+    passive_connectedness,
     print_board,
     empty_constraint_store.
 
@@ -81,37 +82,54 @@ board(_,_,0,BN,BE,_,_) ==> number(BN), BN > 0 | BE = 0.
 board(_,_,0,BN,BE,_,_) ==> number(BE), BE > 0 | BN = 0.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%                      Connectedness                     %%%%%%%%%%%%%
-%%%%%%%%%%%%%     Isolation when a segment connects to an island     %%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%    Additional constraints based on segment isolation   %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-:- chr_constraint additional_constraints/0, island/3, neighbours/4.
+:- chr_constraint additional_constraints/0, island/3, neighbours/2.
 
 % Create the neighbour relation 'n(Orientation, ConstPos, Xsmall, Xbig)'.
 % The neighbour relation follows (topleft -> bottomright)
-island(X,Y,_), island(Xx,Y,_) ==> X < Xx | neighbours(X, Y, Xx, Y).
-island(X,Y,_), island(X,Yy,_) ==> Y < Yy | neighbours(X, Y, X, Yy).
+island(X,Y,_), island(Xx,Y,_) ==> X < Xx | neighbours([X, Y], [Xx, Y]).
+island(X,Y,_), island(X,Yy,_) ==> Y < Yy | neighbours([X, Y], [X, Yy]).
 % Remove interrupted neighbour relations.
-neighbours(X,Y,Xx,Y) \ neighbours(X,Y,Xxx,Y) <=> Xx < Xxx | true.
-neighbours(X,Y,X,Yy) \ neighbours(X,Y,X,Yyy) <=> Yy < Yyy | true.
+neighbours([X,Y],[Xx,Y]) \ neighbours([X,Y],[Xxx,Y]) <=> Xx < Xxx | true.
+neighbours([X,Y],[X,Yy]) \ neighbours([X,Y],[X,Yyy]) <=> Yy < Yyy | true.
 
 % 1-1 connections are impossible
-additional_constraints, neighbours(X,Y,Xx,Y), island(Xx,Y,1), board(X,Y,1,_,_,BS,_) ==> var(BS) | BS = 0.
-additional_constraints, neighbours(X,Y,X,Yy), island(X,Yy,1), board(X,Y,1,_,BE,_,_) ==> var(BE) | BE = 0.
+additional_constraints, neighbours([X,Y],[Xx,Y]), island(Xx,Y,1), board(X,Y,1,_,_,BS,_) ==> var(BS) | BS = 0.
+additional_constraints, neighbours([X,Y],[X,Yy]), island(X,Yy,1), board(X,Y,1,_,BE,_,_) ==> var(BE) | BE = 0.
 
 % 2=2 connections are impossible
-additional_constraints, neighbours(X,Y,Xx,Y), island(Xx,Y,2), board(X,Y,2,_,_,BS,_) ==> var(BS) | BS in 0..1.
-additional_constraints, neighbours(X,Y,X,Yy), island(X,Yy,2), board(X,Y,2,_,BE,_,_) ==> var(BE) | BE in 0..1.
+additional_constraints, neighbours([X,Y],[Xx,Y]), island(Xx,Y,2), board(X,Y,2,_,_,BS,_) ==> var(BS) | BS in 0..1.
+additional_constraints, neighbours([X,Y],[X,Yy]), island(X,Yy,2), board(X,Y,2,_,BE,_,_) ==> var(BE) | BE in 0..1.
 
 % Deactivate additional_constraints.
 additional_constraints <=> true.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%               Passive connectedness method             %%%%%%%%%%%%%
+%%%%%%%%%%%%%      Every island must be reachable from the sink      %%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+:- chr_constraint connected/2, passive_connectedness/0.
+:- chr_constraint reachable/2.
 
+% An island is connected to a neighbour by at least one bridge.
+neighbours([X,Y],[Xx,Y]), board(X,Y,_,_,_,BS,_) ==> number(BS), BS > 0| connected([X,Y],[Xx,Y]).
+neighbours([X,Y],[X,Yy]), board(X,Y,_,_,BE,_,_) ==> number(BE), BE > 0| connected([X,Y],[X,Yy]).
+
+passive_connectedness \ sink(X,Y) <=> reachable(X,Y).
+passive_connectedness, reachable(X,Y) \ connected([X,Y], [Xx,Yy]) <=> reachable(Xx,Yy).
+passive_connectedness, reachable(X,Y) \ connected([Xx,Yy], [X,Y]) <=> reachable(Xx,Yy).
+passive_connectedness, reachable(X,Y) \ reachable(X,Y) <=> true.
+
+% connectivity constraint: each island fact needs to have an accompanying reachable fact
+passive_connectedness \ island(X,Y,_), reachable(X,Y)  <=> true.
+passive_connectedness \ island(_,_,_) <=> false.
+passive_connectedness <=> true.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%              Active connectedness method               %%%%%%%%%%%%%
+%%%%%%%%%%%%%                Isolation of segments                   %%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 
@@ -196,23 +214,23 @@ smallest_first_between(N, M, K) :- N < M, K = N.
 smallest_first_between(N, M, K) :- N == M, !, K = N.
 smallest_first_between(N, M, K) :- N < M, N1 is N+1, smallest_first_between(N1, M, K).
 
-search, X in 0..2 ==> var(X) | enum(X).
-search, X in 1..2 ==> var(X) | enum(X).
 search, X in 0..1 ==> var(X) | enum(X).
+search, X in 1..2 ==> var(X) | enum(X).
+search, X in 0..2 ==> var(X) | enum(X).
 search <=> writeln("Solution:"), true.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%       Load puzzle by Id: Empty -> Islands -> Sink      %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-:- chr_constraint load_puzzle/1, load_islands/1, generate_empty_board/2.
+:- chr_constraint load_puzzle/1, load_islands/1, generate_empty_board/2, select_sink/1, sink/2.
 
 % Load the puzzle.
 % This generates all the necessary board/7 facts into the constraint store.
 % It then updates island facts (Sum of connections).
 % Finally it generates the sink/3 fact used for the flow algorithm.
 load_puzzle(Id) <=> puzzle(Id,Size,Islands) |
-    border(Size), generate_empty_board(1,1), load_islands(Islands).
+    border(Size), generate_empty_board(1,1), load_islands(Islands), select_sink(Islands).
 
 % Generate an empty board of (Size, Size).
 border(Border) \ generate_empty_board(_ ,Col) <=> Col > Border | true.
@@ -231,6 +249,8 @@ load_islands([(X,Y,Sum) | Islands]), board(X,Y,_,BN,BE,BS,BW) <=>
     load_islands(Islands),
     % Needed for neighbour relations
     island(X,Y,Sum).
+
+select_sink([(X,Y,_)|_]) <=> sink(X,Y).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                         Print                          %%%%%%%%%%%%%
@@ -270,7 +290,7 @@ symbol(1, 0, '  | ').
 symbol(2, 0, ' || ').
 
 empty_constraint_store \ island(_,_,_) <=> true.
-empty_constraint_store \ neighbours(_,_,_,_) <=> true.
+empty_constraint_store \ neighbours(_,_) <=> true.
 empty_constraint_store \ add(_,_,_) <=> true.
 empty_constraint_store \ board(_,_,_,_,_,_,_) <=> true.
 empty_constraint_store \ _ in _.._ <=> true.
