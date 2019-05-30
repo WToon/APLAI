@@ -115,14 +115,14 @@ additional_constraints <=> true.
 :- chr_constraint nb_segments/1, segment/3, combine_segments/2, segment_size/2, largest_segment/2.
 
 % Combine segments through connections. The smaller segment becomes part of the larger segment.
-segment(SegId,X,Y), segment(SegId2,Xx,Yy), segment_size(SegId, S1) \ connected([X,Y],[Xx,Yy]), segment_size(SegId2,S2)
+segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([X,Y],[Xx,Yy]), segment_size(SegId2,S2), segment_size(SegId, S1)
     <=> S2 =< S1, Sn is S1+S2 |
     writeln([SegId,SegId2, [X,Y], [Xx,Yy]]),
     combine_segments(SegId,SegId2),
     segment_size(SegId, Sn).
 
 % Combine segments through connections. The smaller segment becomes part of the larger segment.
-segment(SegId,X,Y), segment(SegId2,Xx,Yy), segment_size(SegId, S1) \ connected([Xx,Yy],[X,Y]), segment_size(SegId2,S2)
+segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([Xx,Yy],[X,Y]), segment_size(SegId2,S2), segment_size(SegId, S1)
     <=> S2 =< S1, Sn is S1+S2 |
     writeln([SegId,SegId2, [X,Y], [Xx,Yy]]),
     combine_segments(SegId,SegId2),
