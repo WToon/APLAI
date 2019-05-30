@@ -1,4 +1,3 @@
-
 :- use_module(library(chr)).
 :- consult("benchmarks").
 
@@ -35,7 +34,6 @@ solve(Id) <=>
     print_board,
     empty_constraint_store.
 
-
 get_statistics(Id) <=>
     statistics(walltime, [_ | [_]]),
     load_puzzle(Id),
@@ -43,9 +41,10 @@ get_statistics(Id) <=>
     additional_constraints,
     make_domains,
     search,
-    empty_constraint_store,
+    ac,
     statistics(walltime, [_ | [ExecutionTimeMS]]),
-    write(ExecutionTimeMS), write('ms'), nl.
+    write(ExecutionTimeMS), write('ms'), nl,
+    empty_constraint_store.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -133,7 +132,7 @@ segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([X,Y],[Xx,Yy]) <=> SegId =
 
 % Combine two segments.
 combine_segments(SegId,SegId2) \ segment(SegId2,X,Y) <=> segment(SegId,X,Y).
-combine_segments(_,_), nb_segments(S) <=> Sn is S-1 | nb_segments(Sn), writeln("Combined segments").
+combine_segments(_,_), nb_segments(S) <=> Sn is S-1 | nb_segments(Sn), write("Combined segments. "), write(Sn), writeln(" segments left.").
 
 no_isolated_segment, segment_size(SegId,_) ==> segment_not_isolated(SegId).
 no_isolated_segment <=> true.
@@ -178,7 +177,7 @@ make_domains <=> true.
 
 enum(X) <=> number(X) | true.
 
-enum(X), X in A..B \ nb_assignments(C) <=> N is C+1, smallest_first_between(A, B, X), nb_assignments(N).
+enum(X), X in A..B \ nb_assignments(C) <=> largest_first_between(A, B, X), N is C+1, nb_assignments(N).
 
 % https://stackoverflow.com/questions/18337235/can-you-write-between-3-in-pure-prolog
 % between with largest value selected first
@@ -191,9 +190,9 @@ smallest_first_between(N, M, K) :- N == M, !, K = N.
 smallest_first_between(N, M, K) :- N < M, N1 is N+1, smallest_first_between(N1, M, K).
 
 % After each assignment we check the isolation of segments!
-search, X in 1..2 ==> var(X) | enum(X), no_isolated_segment.
-search, X in 0..1 ==> var(X) | enum(X), no_isolated_segment.
-search, X in 0..2 ==> var(X) | enum(X), no_isolated_segment.
+search, X in 0..2 ==> enum(X), no_isolated_segment.
+search, X in 0..1 ==> enum(X), no_isolated_segment.
+search, X in 1..2 ==> enum(X), no_isolated_segment.
 search <=> true.
 
 
