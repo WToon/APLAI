@@ -9,8 +9,7 @@
 :- op(700, xfx, eq).
 :- op(600, xfx, '..').
 
-:- chr_constraint border/1, board/7, sink/3.
-:- chr_constraint connected/2.
+:- chr_constraint border/1, board/7, sink/3, connected/2.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -177,7 +176,7 @@ make_domains <=> true.
 
 enum(X) <=> number(X) | true.
 
-enum(X), X in A..B \ nb_assignments(C) <=> largest_first_between(A, B, X), N is C+1, nb_assignments(N).
+enum(X), X in A..B \ nb_assignments(C) <=> smallest_first_between(A, B, X), N is C+1, nb_assignments(N), no_isolated_segment.
 
 % https://stackoverflow.com/questions/18337235/can-you-write-between-3-in-pure-prolog
 % between with largest value selected first
@@ -189,10 +188,9 @@ smallest_first_between(N, M, K) :- N < M, K = N.
 smallest_first_between(N, M, K) :- N == M, !, K = N.
 smallest_first_between(N, M, K) :- N < M, N1 is N+1, smallest_first_between(N1, M, K).
 
-% After each assignment we check the isolation of segments!
-search, X in 0..2 ==> enum(X), no_isolated_segment.
-search, X in 0..1 ==> enum(X), no_isolated_segment.
-search, X in 1..2 ==> enum(X), no_isolated_segment.
+search, X in 0..1 ==> enum(X).
+search, X in 0..2 ==> enum(X).
+search, X in 1..2 ==> enum(X).
 search <=> true.
 
 

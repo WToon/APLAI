@@ -1,4 +1,3 @@
-
 :- use_module(library(chr)).
 :- consult("benchmarks").
 
@@ -12,6 +11,7 @@
 
 :- chr_constraint border/1, board/7, sink/3.
 :- chr_constraint connected/2.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                 Solvers and experiments                %%%%%%%%%%%%%
@@ -29,7 +29,7 @@ solve(Id) <=>
     print_board,
     writeln("Searching..."),
     search,
-    ac,
+    passive_constraints,
     writeln("Solution:"),
     print_board,
     empty_constraint_store.
@@ -45,6 +45,7 @@ get_statistics(Id) <=>
     empty_constraint_store,
     statistics(walltime, [_ | [ExecutionTimeMS]]),
     write(ExecutionTimeMS), write('ms'), nl.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                   Bridge  constraints                  %%%%%%%%%%%%%
@@ -83,6 +84,7 @@ bridge_constraints <=> true.
 board(_,_,0,BN,BE,_,_) ==> number(BN), BN > 0 | BE = 0.
 board(_,_,0,BN,BE,_,_) ==> number(BE), BE > 0 | BN = 0.
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%    Additional constraints - simple segment isolation   %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -107,21 +109,28 @@ additional_constraints, neighbours([X,Y],[X,Yy]), island(X,Yy,2), board(X,Y,2,_,
 % Deactivate additional_constraints.
 additional_constraints <=> true.
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%              Active connectedness method               %%%%%%%%%%%%%
-%%%%%%%%%%%%%    Isolation of segments - checked during search       %%%%%%%%%%%%%
+%%%%%%%%%%%%%              Passive connectedness method              %%%%%%%%%%%%%
+%%%%%%%%%%%%%     Segment based - a single segment at the end        %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-:- chr_constraint ac/0.
+:- chr_constraint passive_constraints/0.
 :- chr_constraint nb_segments/1, segment/3, combine_segments/2.
 
 segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([X,Y],[Xx,Yy]), nb_segments(C) <=> SegId < SegId2 | 
-    writeln(["segIds", SegId, SegId2]), combine_segments(SegId,SegId2), NewC is C-1, nb_segments(NewC).
+    combine_segments(SegId,SegId2), NewC is C-1, nb_segments(NewC).
 segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([Xx,Yy],[X,Y]), nb_segments(C) <=> SegId < SegId2 | 
-    writeln(["segIds", SegId, SegId2]), combine_segments(SegId,SegId2), NewC is C-1, nb_segments(NewC).
+    combine_segments(SegId,SegId2), NewC is C-1, nb_segments(NewC).
+
+% Remove connections inside the same segment.
+segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([Xx,Yy],[X,Y]) <=> SegId == SegId2 | true.
+segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([X,Y],[Xx,Yy]) <=> SegId == SegId2 | true.
 
 % SegId < SegId2
-combine_segments(SegId,SegId2) \ segment(SegId2,X,Y) <=> segment(SegId,X,Y), writeln([SegId,X,Y]).
+combine_segments(SegId,SegId2) \ segment(SegId2,X,Y) <=> segment(SegId,X,Y).
 combine_segments(_,_) <=> true.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                      Make Domains                      %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -140,6 +149,7 @@ make_domains, board(_,_,_,_,_,_,BW) ==> BW in 0..2.
 
 % Remove make_domains from the constraint store.
 make_domains <=> true.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%              Constraint solving expressions            %%%%%%%%%%%%%
@@ -245,6 +255,7 @@ nb_segments(X) \ nb_segments(Y) <=> X > Y | true.
 neighbours([X,Y],[Xx,Y]), board(X,Y,_,_,_,BS,_) ==> number(BS), BS > 0| connected([X,Y],[Xx,Y]).
 neighbours([X,Y],[X,Yy]), board(X,Y,_,_,BE,_,_) ==> number(BE), BE > 0| connected([X,Y],[X,Yy]).
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                         Print                          %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -282,6 +293,7 @@ symbol(0, 2, '==').
 symbol(1, 0, '  | ').
 symbol(2, 0, ' || ').
 
+empty_constraint_store \ segment(_,_,_) <=> true.
 empty_constraint_store \ island(_,_,_) <=> true.
 empty_constraint_store \ neighbours(_,_) <=> true.
 empty_constraint_store \ add(_,_,_) <=> true.

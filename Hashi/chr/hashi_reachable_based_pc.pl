@@ -1,4 +1,3 @@
-
 :- use_module(library(chr)).
 :- consult("benchmarks").
 
@@ -12,6 +11,7 @@
 
 :- chr_constraint border/1, board/7, sink/3.
 :- chr_constraint connected/2.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                 Solvers and experiments                %%%%%%%%%%%%%
@@ -29,8 +29,7 @@ solve(Id) <=>
     print_board,
     writeln("Searching..."),
     search,
-    active_connectedness,
-    %passive_connectedness,
+    passive_connectedness,
     writeln("Solution:"),
     print_board,
     empty_constraint_store.
@@ -43,9 +42,11 @@ get_statistics(Id) <=>
     additional_constraints,
     make_domains,
     search,
+    passive_connectedness,
     empty_constraint_store,
     statistics(walltime, [_ | [ExecutionTimeMS]]),
     write(ExecutionTimeMS), write('ms'), nl.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                   Bridge  constraints                  %%%%%%%%%%%%%
@@ -56,9 +57,9 @@ get_statistics(Id) <=>
 % The total number of connections must equal the island number.
 % Each side of an island supports at maximum 2 connections.
 bridge_constraints, board(_,_,Sum,BN,BE,BS,BW) ==> Sum > 0 |
-    S in 0..4, add(BN, BE, S),
-    Ss in 0..4,add(BS, BW, Ss),
-    add(S, Ss, Sum).
+    S in 0..4, add(BN,BE,S),
+    Ss in 0..4,add(BS,BW,Ss),
+    add(S,Ss,Sum).
 
 % A non-island tile has the same amount of connections on adjacent sides.
 bridge_constraints, board(_,_,0,BN,BE,BS,BW) ==> BN = BS, BE = BW.
@@ -84,6 +85,7 @@ bridge_constraints <=> true.
 board(_,_,0,BN,BE,_,_) ==> number(BN), BN > 0 | BE = 0.
 board(_,_,0,BN,BE,_,_) ==> number(BE), BE > 0 | BN = 0.
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%    Additional constraints based on segment isolation   %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -108,6 +110,7 @@ additional_constraints, neighbours([X,Y],[X,Yy]), island(X,Yy,2), board(X,Y,2,_,
 % Deactivate additional_constraints.
 additional_constraints <=> true.
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%               Passive connectedness method             %%%%%%%%%%%%%
 %%%%%%%%%%%%%      Every island must be reachable from the sink      %%%%%%%%%%%%%
@@ -123,6 +126,7 @@ passive_connectedness, reachable(X,Y) \ reachable(X,Y) <=> true.
 passive_connectedness \ island(X,Y,_), reachable(X,Y)  <=> true.
 passive_connectedness \ island(_,_,_) <=> false.
 passive_connectedness <=> true.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                      Make Domains                      %%%%%%%%%%%%%
@@ -142,6 +146,7 @@ make_domains, board(_,_,_,_,_,_,BW) ==> BW in 0..2.
 
 % Remove make_domains from the constraint store.
 make_domains <=> true.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%              Constraint solving expressions            %%%%%%%%%%%%%
@@ -245,6 +250,7 @@ select_sink([(X,Y,_)|_]) <=> sink(X,Y).
 % An island is connected to a neighbour by at least one bridge.
 neighbours([X,Y],[Xx,Y]), board(X,Y,_,_,_,BS,_) ==> number(BS), BS > 0| connected([X,Y],[Xx,Y]).
 neighbours([X,Y],[X,Yy]), board(X,Y,_,_,BE,_,_) ==> number(BE), BE > 0| connected([X,Y],[X,Yy]).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                         Print                          %%%%%%%%%%%%%
