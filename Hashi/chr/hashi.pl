@@ -13,6 +13,7 @@
 :- chr_constraint border/1, board/7, sink/3.
 :- chr_constraint connected/2.
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                 Solvers and experiments                %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -25,9 +26,9 @@ solve(Id) <=>
     additional_constraints,
     writeln("Stored constraints, making domains..."),
     make_domains, 
-    writeln("Made domains."),
+    writeln("Made domains. Situation before search."),
     print_board,
-    writeln("Searching..."),
+    writeln("Starting search..."),
     search,
     ac,
     writeln("Solution:"),
@@ -46,6 +47,7 @@ get_statistics(Id) <=>
     statistics(walltime, [_ | [ExecutionTimeMS]]),
     write(ExecutionTimeMS), write('ms'), nl.
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                   Bridge  constraints                  %%%%%%%%%%%%%
 %%%%%%%%%%%%%          The same as the ECLiPSe implementation        %%%%%%%%%%%%%
@@ -55,9 +57,9 @@ get_statistics(Id) <=>
 % The total number of connections must equal the island number.
 % Each side of an island supports at maximum 2 connections.
 bridge_constraints, board(_,_,Sum,BN,BE,BS,BW) ==> Sum > 0 |
-    S in 0..4, add(BN, BE, S),
-    Ss in 0..4,add(BS, BW, Ss),
-    add(S, Ss, Sum).
+    S in 0..4, add(BN,BE,S),
+    Ss in 0..4,add(BS,BW,Ss),
+    add(S,Ss,Sum).
 
 % A non-island tile has the same amount of connections on adjacent sides.
 bridge_constraints, board(_,_,0,BN,BE,BS,BW) ==> BN = BS, BE = BW.
@@ -107,6 +109,7 @@ additional_constraints, neighbours([X,Y],[X,Yy]), island(X,Yy,2), board(X,Y,2,_,
 % Deactivate additional_constraints.
 additional_constraints <=> true.
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%              Active connectedness method               %%%%%%%%%%%%%
 %%%%%%%%%%%%%    Isolation of segments - checked during search       %%%%%%%%%%%%%
@@ -115,27 +118,22 @@ additional_constraints <=> true.
 :- chr_constraint nb_segments/1, segment/3, combine_segments/2, segment_size/2, largest_segment/2.
 
 % Combine segments through connections. The smaller segment becomes part of the larger segment.
-segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([X,Y],[Xx,Yy]), segment_size(SegId2,S2), segment_size(SegId, S1)
+segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([X,Y],[Xx,Yy]), segment_size(SegId2,S2), segment_size(SegId,S1)
     <=> S2 =< S1, Sn is S1+S2 |
-    writeln([SegId,SegId2, [X,Y], [Xx,Yy]]),
     combine_segments(SegId,SegId2),
-    segment_size(SegId, Sn).
-
-% Combine segments through connections. The smaller segment becomes part of the larger segment.
-segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([Xx,Yy],[X,Y]), segment_size(SegId2,S2), segment_size(SegId, S1)
+    segment_size(SegId,Sn).
+segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([Xx,Yy],[X,Y]), segment_size(SegId2,S2), segment_size(SegId,S1)
     <=> S2 =< S1, Sn is S1+S2 |
-    writeln([SegId,SegId2, [X,Y], [Xx,Yy]]),
     combine_segments(SegId,SegId2),
-    segment_size(SegId, Sn).
+    segment_size(SegId,Sn).
 
-% If a connection is left over but the connected cells are already part of the same segment,
-% we can remove the connected relation.
+% Remove connections inside the same segment.
 segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([Xx,Yy],[X,Y]) <=> SegId == SegId2 | true.
 segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([X,Y],[Xx,Yy]) <=> SegId == SegId2 | true.
 
 % Combine two segments.
 combine_segments(SegId,SegId2) \ segment(SegId2,X,Y) <=> segment(SegId,X,Y).
-combine_segments(SegId,_), nb_segments(S) <=> Sn is S-1 | nb_segments(Sn).
+combine_segments(_,_), nb_segments(S) <=> Sn is S-1 | nb_segments(Sn), writeln("Combined segments").
 
 no_isolated_segment, segment_size(SegId,_) ==> segment_not_isolated(SegId).
 no_isolated_segment <=> true.
@@ -146,10 +144,12 @@ segment(Id,X,Y), board(X,Y,_,BN,_,_,_) \ segment_not_isolated(Id) <=> var(BN) | 
 segment(Id,X,Y), board(X,Y,_,_,BE,_,_) \ segment_not_isolated(Id) <=> var(BE) | true.
 segment(Id,X,Y), board(X,Y,_,_,_,BS,_) \ segment_not_isolated(Id) <=> var(BS) | true.
 segment(Id,X,Y), board(X,Y,_,_,_,_,BW) \ segment_not_isolated(Id) <=> var(BW) | true.
-segment_not_isolated(_) <=> writeln("Forced backtrack"), false.
+segment_not_isolated(_) <=> writeln("Segment isolation occured. Backtracking..."), false.
 
+% Activate the connectedness constraint.
 ac ==> no_isolated_segment.
 ac <=> true.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                      Make Domains                      %%%%%%%%%%%%%
@@ -170,6 +170,33 @@ make_domains, board(_,_,_,_,_,_,BW) ==> BW in 0..2.
 % Remove make_domains from the constraint store.
 make_domains <=> true.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%                           Search                       %%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+:- chr_constraint search/0, enum/1, nb_assignments/1.
+
+enum(X) <=> number(X) | true.
+
+enum(X), X in A..B \ nb_assignments(C) <=> N is C+1, smallest_first_between(A, B, X), nb_assignments(N).
+
+% https://stackoverflow.com/questions/18337235/can-you-write-between-3-in-pure-prolog
+% between with largest value selected first
+largest_first_between(N, M, K) :- N < M, K = M.
+largest_first_between(N, M, K) :- N == M, !, K = M.
+largest_first_between(N, M, K) :- N < M, M1 is M-1, largest_first_between(N, M1, K).
+% between with smallest value selected first
+smallest_first_between(N, M, K) :- N < M, K = N.
+smallest_first_between(N, M, K) :- N == M, !, K = N.
+smallest_first_between(N, M, K) :- N < M, N1 is N+1, smallest_first_between(N1, M, K).
+
+% After each assignment we check the isolation of segments!
+search, X in 1..2 ==> var(X) | enum(X), no_isolated_segment.
+search, X in 0..1 ==> var(X) | enum(X), no_isolated_segment.
+search, X in 0..2 ==> var(X) | enum(X), no_isolated_segment.
+search <=> true.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%              Constraint solving expressions            %%%%%%%%%%%%%
 %%%%%%%%%%%%%         Inspired by FD solver from slides 6.64..       %%%%%%%%%%%%%
@@ -179,7 +206,6 @@ make_domains <=> true.
 % If X lies in [A,A], X must be A.
 X in A..A <=> var(X) |X = A.
 X in A..B \ X in A..B <=> var(X) | true.
-
 
 % Equality constraint (taken from Slide 6.66)
 % For numbers this reduces to the simple equality.
@@ -213,31 +239,6 @@ add(X,Y,Z) \ X in A..B, Y in C..D, Z in E..F <=>
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%                           Search                       %%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-:- chr_constraint search/0, enum/1.
-
-enum(X) <=> number(X) | true.
-
-enum(X), X in A..B <=> smallest_first_between(A, B, X).
-
-% https://stackoverflow.com/questions/18337235/can-you-write-between-3-in-pure-prolog
-% between with largest value selected first
-largest_first_between(N, M, K) :- N < M, K = M.
-largest_first_between(N, M, K) :- N == M, !, K = M.
-largest_first_between(N, M, K) :- N < M, M1 is M-1, largest_first_between(N, M1, K).
-% between with smallest value selected first
-smallest_first_between(N, M, K) :- N < M, K = N.
-smallest_first_between(N, M, K) :- N == M, !, K = N.
-smallest_first_between(N, M, K) :- N < M, N1 is N+1, smallest_first_between(N1, M, K).
-
-search, X in 0..1 ==> var(X) | enum(X), no_isolated_segment.
-search, X in 1..2 ==> var(X) | enum(X), no_isolated_segment.
-search, X in 0..2 ==> var(X) | enum(X), no_isolated_segment.
-search <=> true.
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%       Load puzzle by Id: Empty -> Islands -> Sink      %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 :- chr_constraint load_puzzle/1, load_islands/2, generate_empty_board/2.
@@ -247,7 +248,7 @@ search <=> true.
 % It then updates island facts (Sum of connections).
 % Finally it generates the sink/3 fact used for the flow algorithm.
 load_puzzle(Id) <=> puzzle(Id,Size,Islands) |
-    border(Size), generate_empty_board(1,1), nb_segments(0), load_islands(Islands, 0).
+    border(Size), generate_empty_board(1,1), nb_segments(0), nb_assignments(0), load_islands(Islands, 0).
 
 % Generate an empty board of (Size, Size).
 border(Border) \ generate_empty_board(_ ,Col) <=> Col > Border | true.
@@ -274,6 +275,7 @@ nb_segments(X) \ nb_segments(Y) <=> X > Y | true.
 % An island is connected to a neighbour by at least one bridge.
 neighbours([X,Y],[Xx,Y]), board(X,Y,_,_,_,BS,_) ==> number(BS), BS > 0| connected([X,Y],[Xx,Y]).
 neighbours([X,Y],[X,Yy]), board(X,Y,_,_,BE,_,_) ==> number(BE), BE > 0| connected([X,Y],[X,Yy]).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                         Print                          %%%%%%%%%%%%%
