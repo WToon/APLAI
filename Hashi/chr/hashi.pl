@@ -29,6 +29,7 @@ solve(Id) <=>
     print_board,
     writeln("Searching..."),
     search,
+    ac,
     writeln("Solution:"),
     print_board,
     empty_constraint_store.
@@ -110,27 +111,45 @@ additional_constraints <=> true.
 %%%%%%%%%%%%%              Active connectedness method               %%%%%%%%%%%%%
 %%%%%%%%%%%%%    Isolation of segments - checked during search       %%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-:- chr_constraint ac/0, segment_not_isolated/1.
-:- chr_constraint nb_segments/1, segment/3, combine_segments/2.
+:- chr_constraint ac/0, segment_not_isolated/1, no_isolated_segment/0.
+:- chr_constraint nb_segments/1, segment/3, combine_segments/2, segment_size/2, largest_segment/2.
 
-% Combine segments through connections. 
-% If the board is fully connected nb_segments(0) will be in the constraint store and the only segment will have Id 1.
-segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([X,Y],[Xx,Yy]), nb_segments(C) <=> SegId < SegId2 | 
-    combine_segments(SegId,SegId2), NewC is C-1, nb_segments(NewC).
-segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([Xx,Yy],[X,Y]), nb_segments(C) <=> SegId < SegId2 | 
-    combine_segments(SegId,SegId2), NewC is C-1, nb_segments(NewC).
+% Combine segments through connections. The smaller segment becomes part of the larger segment.
+segment(SegId,X,Y), segment(SegId2,Xx,Yy), segment_size(SegId, S1) \ connected([X,Y],[Xx,Yy]), segment_size(SegId2,S2)
+    <=> S2 =< S1, Sn is S1+S2 |
+    writeln([SegId,SegId2, [X,Y], [Xx,Yy]]),
+    combine_segments(SegId,SegId2),
+    segment_size(SegId, Sn).
+
+% Combine segments through connections. The smaller segment becomes part of the larger segment.
+segment(SegId,X,Y), segment(SegId2,Xx,Yy), segment_size(SegId, S1) \ connected([Xx,Yy],[X,Y]), segment_size(SegId2,S2)
+    <=> S2 =< S1, Sn is S1+S2 |
+    writeln([SegId,SegId2, [X,Y], [Xx,Yy]]),
+    combine_segments(SegId,SegId2),
+    segment_size(SegId, Sn).
+
+% If a connection is left over but the connected cells are already part of the same segment,
+% we can remove the connected relation.
 segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([Xx,Yy],[X,Y]) <=> SegId == SegId2 | true.
+segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([X,Y],[Xx,Yy]) <=> SegId == SegId2 | true.
 
-% TODO By combining the smallest set with the larger one we can save alot of rule firing!
-% SegId < SegId2
+% Combine two segments.
 combine_segments(SegId,SegId2) \ segment(SegId2,X,Y) <=> segment(SegId,X,Y).
-combine_segments(SegId,_) <=> segment_not_isolated(SegId).
+combine_segments(SegId,_), nb_segments(S) <=> Sn is S-1 | nb_segments(Sn).
 
+no_isolated_segment, segment_size(SegId,_) ==> segment_not_isolated(SegId).
+no_isolated_segment <=> true.
+
+% A segment is isolated if every possible connection is completely defined.
+nb_segments(1) \ segment_not_isolated(_) <=> true.
 segment(Id,X,Y), board(X,Y,_,BN,_,_,_) \ segment_not_isolated(Id) <=> var(BN) | true.
 segment(Id,X,Y), board(X,Y,_,_,BE,_,_) \ segment_not_isolated(Id) <=> var(BE) | true.
 segment(Id,X,Y), board(X,Y,_,_,_,BS,_) \ segment_not_isolated(Id) <=> var(BS) | true.
 segment(Id,X,Y), board(X,Y,_,_,_,_,BW) \ segment_not_isolated(Id) <=> var(BW) | true.
-segment_not_isolated(X) <=> X\==1 | write("Forced backtrack"), false.
+segment_not_isolated(_) <=> writeln("Forced backtrack"), false.
+
+ac ==> no_isolated_segment.
+ac <=> true.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%                      Make Domains                      %%%%%%%%%%%%%
@@ -200,7 +219,7 @@ add(X,Y,Z) \ X in A..B, Y in C..D, Z in E..F <=>
 
 enum(X) <=> number(X) | true.
 
-enum(X), X in A..B <=> largest_first_between(A, B, X).
+enum(X), X in A..B <=> smallest_first_between(A, B, X).
 
 % https://stackoverflow.com/questions/18337235/can-you-write-between-3-in-pure-prolog
 % between with largest value selected first
@@ -212,9 +231,9 @@ smallest_first_between(N, M, K) :- N < M, K = N.
 smallest_first_between(N, M, K) :- N == M, !, K = N.
 smallest_first_between(N, M, K) :- N < M, N1 is N+1, smallest_first_between(N1, M, K).
 
-search, X in 0..1 ==> var(X) | enum(X).
-search, X in 1..2 ==> var(X) | enum(X).
-search, X in 0..2 ==> var(X) | enum(X).
+search, X in 0..1 ==> var(X) | enum(X), no_isolated_segment.
+search, X in 1..2 ==> var(X) | enum(X), no_isolated_segment.
+search, X in 0..2 ==> var(X) | enum(X), no_isolated_segment.
 search <=> true.
 
 
@@ -247,6 +266,7 @@ load_islands([(X,Y,Sum) | Islands], NbSegments), board(X,Y,_,BN,BE,BS,BW) <=>
     board(X,Y,Sum,BN,BE,BS,BW),
     NewNbSegments is NbSegments+1,
     segment(NewNbSegments,X,Y),
+    segment_size(NewNbSegments, 1),
     nb_segments(NewNbSegments),
     load_islands(Islands, NewNbSegments).
 
