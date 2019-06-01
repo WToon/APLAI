@@ -23,20 +23,18 @@ X ne Y <=> nonvar(X),nonvar(Y) | X \== Y.
 
 _ in [] <=> fail.
 X in [Y] <=> X = Y.
-enum([]) <=> true.
 X in L <=> nonvar(X) | memberchk(X,L).
 X in L, X ne Y <=> nonvar(Y) |delete(L,Y,L_New), X in L_New.
 X in L, Y ne X <=> nonvar(Y) |delete(L,Y,L_New), X in L_New.
 
-enum([X|L]) <=> indomain(X), enum(L).
+inDifferentBox(X1,X2,NN), X2 in L <=> nonvar(X1) | groupCols(X1,NN,GroupCols), subtract(L,GroupCols,LNew),X2 in LNew.
+inDifferentBox(X2,X1,NN), X2 in L <=> nonvar(X1) | groupCols(X1,NN,GroupCols), subtract(L,GroupCols,LNew),X2 in LNew.
 
 indomain(X) <=> nonvar(X) | true.
 indomain(X) , X in [V|L] <=> L = [_|_] | (X in [V]; X in L, indomain(X)).
 
-
-inDifferentBox(X1,X2,NN), X2 in L <=> nonvar(X1) | groupCols(X1,NN,GroupCols), subtract(L,GroupCols,LNew),X2 in LNew.
-inDifferentBox(X2,X1,NN), X2 in L <=> nonvar(X1) | groupCols(X1,NN,GroupCols), subtract(L,GroupCols,LNew),X2 in LNew.
-
+enum([X|L]) <=> indomain(X), enum(L).
+enum([]) <=> true.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
