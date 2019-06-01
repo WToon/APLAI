@@ -1,8 +1,3 @@
-%
-% The solving part of the classic viewpoint comes from the examples on the eclipseclp website:
-% http://www.eclipseclp.org/examples/sudoku.ecl.txt
-% Author: Joachim Schimpf, IC-Parc
-%
 
 :- lib(ic).
 %:- import alldifferent/1 from ic_global.
@@ -97,7 +92,11 @@ solveBoth(Board) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % CONSTRAINTS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+%
+% These constraints, and the search come from the examples on the eclipseclp website:
+% http://www.eclipseclp.org/examples/sudoku.ecl.txt
+% Author: Joachim Schimpf, IC-Parc
+%
 setClassicConstraints(Board) :-
 	dim(Board, [N,N]),
 	Board :: 1..N,
