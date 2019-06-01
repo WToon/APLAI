@@ -64,10 +64,10 @@ bridge_constraints, board(_,_,0,BN,BE,BS,BW) ==> BN = BS, BE = BW.
 
 % Adjacent cells have the same number of connections on opposite sides.
 bridge_constraints,
-    board(X,Y,_,BN,_,_,_), board(Xx,Y,_,_,_,BS,_) ==> Xx is X-1 | BN eq BS.
+    board(X,Y,_,BN,_,_,_), board(Xx,Y,_,_,_,BS,_) ==> Xx =:= X-1 | BN eq BS.
 
 bridge_constraints, 
-    board(X,Y,_,_,BE,_,_), board(X,Yy,_,_,_,_,BW) ==> Yy is Y+1 | BE eq BW.
+    board(X,Y,_,_,BE,_,_), board(X,Yy,_,_,_,_,BW) ==> Yy =:= Y+1 | BE eq BW.
 
 % Connections to the border are not possible.
 bridge_constraints, board(1,_,_,BN,_,_,_) ==> BN = 0.
@@ -117,11 +117,11 @@ additional_constraints <=> true.
 
 % Combine segments through connections. The smaller segment becomes part of the larger segment.
 segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([X,Y],[Xx,Yy]), segment_size(SegId2,S2), segment_size(SegId,S1)
-    <=> S2 =< S1, Sn is S1+S2 |
+    <=> S2 =< S1 | Sn is S1+S2,
     combine_segments(SegId,SegId2),
     segment_size(SegId,Sn).
 segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([Xx,Yy],[X,Y]), segment_size(SegId2,S2), segment_size(SegId,S1)
-    <=> S2 =< S1, Sn is S1+S2 |
+    <=> S2 =< S1 | Sn is S1+S2,
     combine_segments(SegId,SegId2),
     segment_size(SegId,Sn).
 
@@ -131,7 +131,7 @@ segment(SegId,X,Y), segment(SegId2,Xx,Yy) \ connected([X,Y],[Xx,Yy]) <=> SegId =
 
 % Combine two segments.
 combine_segments(SegId,SegId2) \ segment(SegId2,X,Y) <=> segment(SegId,X,Y).
-combine_segments(_,_), nb_segments(S) <=> Sn is S-1 | nb_segments(Sn), write("Combined segments. "), write(Sn), writeln(" segments left.").
+combine_segments(_,_), nb_segments(S) <=> Sn is S-1, nb_segments(Sn), write("Combined segments. "), write(Sn), writeln(" segments left.").
 
 no_isolated_segment, segment_size(SegId,_) ==> segment_not_isolated(SegId).
 no_isolated_segment <=> true.
@@ -229,6 +229,7 @@ add(X,Y,Z) <=> number(X), number(Y), number(Z) | Z is X+Y.
 % E.g. "3 in 3..3, Y in 0..5, Z in -10..10, add(3, Y, Z)" gives "Z in 3..8".
 %      "Y in 0..5, Z in -10..10, add(3, Y, Z)" Does not fire the add rule.
 add(X,Y,Z) \ X in A..B, Y in C..D, Z in E..F <=>
+    not((number(X),number(Y),number(Z))),
     not(( A>=E-D, B=<F-C, C>=E-B, D=<F-A, E>=A+C, F=<B+D)) |
     Lx is max(A,E-D), Ux is min(B,F-C), X in Lx..Ux,
     Ly is max(C,E-B), Uy is min(D,F-A), Y in Ly..Uy,
@@ -244,16 +245,16 @@ add(X,Y,Z) \ X in A..B, Y in C..D, Z in E..F <=>
 % This generates all the necessary board/7 facts into the constraint store.
 % It then updates island facts (Sum of connections).
 % Finally it generates the sink/3 fact used for the flow algorithm.
-load_puzzle(Id) <=> puzzle(Id,Size,Islands) |
+load_puzzle(Id) <=> puzzle(Id,Size,Islands),
     border(Size), generate_empty_board(1,1), nb_segments(0), nb_assignments(0), load_islands(Islands, 0).
 
 % Generate an empty board of (Size, Size).
 border(Border) \ generate_empty_board(_ ,Col) <=> Col > Border | true.
 
-border(Border) \ generate_empty_board(Row,Col) <=> Row > Border, NextCol is Col+1 |
+border(Border) \ generate_empty_board(Row,Col) <=> Row > Border | NextCol is Col+1,
     generate_empty_board(1, NextCol).
 
-border(Border) \ generate_empty_board(Row,Col) <=> Row =< Border, NextRow is Row+1 |
+border(Border) \ generate_empty_board(Row,Col) <=> Row =< Border | NextRow is Row+1,
     board(Row,Col,0,_,_,_,_),  generate_empty_board(NextRow, Col).
 
 % Load the islands into the board.
@@ -301,7 +302,7 @@ board(X,Y, Island, BN, BE,_,_) \ print_board(X,Y) <=>
     !.
 
 board(X,_,_,_,_,_,_) \ print_board(X,_) <=> 
-    Xx is X+1, nl | print_board(Xx, 1).
+    Xx is X+1, nl, print_board(Xx, 1).
 
 print_board(_,_) <=> nl.
 
