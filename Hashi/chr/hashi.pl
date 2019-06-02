@@ -187,10 +187,10 @@ largest_first_between(N, M, K) :- N < M, M1 is M-1, largest_first_between(N, M1,
 smallest_first_between(N, M, K) :- N < M, K = N.
 smallest_first_between(N, M, K) :- N == M, !, K = N.
 smallest_first_between(N, M, K) :- N < M, N1 is N+1, smallest_first_between(N1, M, K).
-
-search, X in 0..1 ==> enum(X).
-search, X in 0..2 ==> enum(X).
 search, X in 1..2 ==> enum(X).
+search, X in 0..1 ==> enum(X).
+
+search, X in 0..2 ==> enum(X).
 search <=> true.
 
 
@@ -212,13 +212,17 @@ X eq Y <=> number(X), number(Y) | X == Y.
 % Update lower bound.
 X eq Y \ X in A..B, Y in C..D <=> A \== C |
     L is max(A,C),
-    X in L..B,
-    Y in L..D.
+    ((L > B ; L > D) -> fail ;
+        X in L..B,
+        Y in L..D
+    ).
 % Update upper bound.
 X eq Y \ X in A..B, Y in C..D <=> B \== D|
     U is min(B,D),
-    X in A..U,
-    Y in C..U.
+    ((U < A ; U < C) -> fail ;
+        X in A..U,
+        Y in C..U
+    ).
 
 % Addition constraint (taken from slide 6.66)
 % For numbers this reduces to the simple addition.
@@ -229,11 +233,11 @@ add(X,Y,Z) <=> number(X), number(Y), number(Z) | Z is X+Y.
 % E.g. "3 in 3..3, Y in 0..5, Z in -10..10, add(3, Y, Z)" gives "Z in 3..8".
 %      "Y in 0..5, Z in -10..10, add(3, Y, Z)" Does not fire the add rule.
 add(X,Y,Z) \ X in A..B, Y in C..D, Z in E..F <=>
-    not((number(X),number(Y),number(Z))),
-    not(( A>=E-D, B=<F-C, C>=E-B, D=<F-A, E>=A+C, F=<B+D)) |
+    not(( A>=E-D, B=<F-C, C>=E-B, D=<F-A, E>=A+C, F=<B+D))|
     Lx is max(A,E-D), Ux is min(B,F-C), X in Lx..Ux,
     Ly is max(C,E-B), Uy is min(D,F-A), Y in Ly..Uy,
-    Lz is max(E,A+C), Uz is min(F,B+D), Z in Lz..Uz.
+    Lz is max(E,A+C), Uz is min(F,B+D),(Lz > Uz -> writeln("Error! in Z"), writeln(X in A .. B),writeln(Y in C .. D), writeln(Z in E .. F);true), Z in Lz..Uz.
+    
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
