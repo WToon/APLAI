@@ -187,10 +187,11 @@ largest_first_between(N, M, K) :- N < M, M1 is M-1, largest_first_between(N, M1,
 smallest_first_between(N, M, K) :- N < M, K = N.
 smallest_first_between(N, M, K) :- N == M, !, K = N.
 smallest_first_between(N, M, K) :- N < M, N1 is N+1, smallest_first_between(N1, M, K).
-search, X in 1..2 ==> enum(X).
-search, X in 0..1 ==> enum(X).
 
 search, X in 0..2 ==> enum(X).
+search, X in 0..1 ==> enum(X).
+search, X in 1..2 ==> enum(X).
+
 search <=> true.
 
 
